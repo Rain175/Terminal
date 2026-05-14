@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>APEX Foundation // Core Network Terminal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap');
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background-color: #030303;
+    }
+    /* Custom Scrollbar styling for a retro look */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: #dc2626; }
+    
+    /* Terminal custom animations */
+    .crt-scanlines {
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.02), rgba(0, 255, 0, 0.04));
+      background-size: 100% 4px, 6px 100%;
+    }
+    .blink { animation: blinker 1s step-start infinite; }
+    @keyframes blinker { 50% { opacity: 0; } }
+    .glitch-text { text-shadow: 0 0 8px rgba(220, 38, 38, 0.4); }
+  </style>
+</head>
+<body class="h-screen w-screen overflow-hidden text-zinc-400 p-2 md:p-4 select-none relative flex flex-col justify-between">
+
+  <div class="absolute inset-0 crt-scanlines pointer-events-none z-50"></div>
+
+  <div id="bootScreen" class="fixed inset-0 bg-black z-50 flex flex-col p-6 font-mono text-xs text-zinc-500 justify-between transition-opacity duration-1000">
+    <div id="bootLogs" class="space-y-1">
+      <div>[ MAIN SYSTEM BOOT INITIALIZED ]</div>
+      <div>LOADING APEX FOUNDATION CORE NETWORK DRIVERS... SUCCESS.</div>
+      <div>ESTABLISHING ENCRYPTED HANDSHAKE WITH PORTAL NODE_09... DONE.</div>
+    </div>
+    <div class="text-zinc-400 animate-pulse">INITIALIZING SECURE ARCHIVE FRAMEWORK... READY. CLICK ANYWHERE TO CONSOLE CONNECT.</div>
+  </div>
+
+  <div class="w-full max-w-7xl mx-auto flex-1 bg-zinc-950 border border-zinc-900 rounded-lg shadow-2xl flex flex-col overflow-hidden relative z-10">
+    
+    <header class="h-14 border-b border-zinc-900 bg-zinc-900/20 px-4 flex justify-between items-center shrink-0">
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+          <span class="font-bold text-white text-sm tracking-widest">APEX // NET_NODE_V71</span>
+        </div>
+        <div class="hidden md:flex items-center gap-2 text-[10px] bg-zinc-900/60 px-2 py-1 rounded border border-zinc-800 text-zinc-500">
+          <span>PORT: 3110</span>
+          <span class="text-zinc-700">|</span>
+          <span>STATUS: INTRUSION DETECTED</span>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-6 text-xs font-medium">
+        <div class="hidden sm:block text-right">
+          <span class="text-[10px] text-zinc-600 block uppercase tracking-wider">Clearance Index</span>
+          <span id="globalClearanceText" class="text-red-500 font-bold tracking-wider">LEVEL 0 (UNSECURED)</span>
+        </div>
+        <div class="text-right">
+          <span class="text-[10px] text-zinc-600 block uppercase tracking-wider">Local Terminal Time</span>
+          <span id="systemClock" class="text-zinc-300 font-bold">00:00:00 AM</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+      
+      <aside class="w-64 border-r border-zinc-900 bg-zinc-950/40 shrink-0 hidden md:flex flex-col justify-between p-4">
+        <div class="space-y-6">
+          <div>
+            <span class="text-[10px] font-bold text-zinc-600 tracking-widest uppercase block mb-3">Core Directories</span>
+            <nav class="space-y-1">
+              <button onclick="switchView('overview')" class="w-full text-left px-2 py-1.5 rounded text-xs transition flex items-center justify-between text-zinc-300 bg-zinc-900/50 border border-zinc-800">
+                <span>// system_overview</span>
+              </button>
+            </nav>
+          </div>
+          
+          <div>
+            <div class="flex justify-between items-center mb-3">
+              <span class="text-[10px] font-bold text-zinc-600 tracking-widest uppercase block">Data Repositories</span>
+              <span id="unlockedCountBadge" class="text-[9px] bg-red-950 text-red-400 font-bold px-1.5 py-0.2 border border-red-900 rounded">1/4</span>
+            </div>
+            <nav class="space-y-1" id="sidebarFileList">
+              </nav>
+          </div>
+        </div>
+
+        <button id="sidebarTerminalBtn" class="w-full bg-red-950/20 border border-red-900/40 hover:bg-red-950/40 text-red-400 rounded p-2 text-xs font-bold transition flex items-center justify-center gap-2 tracking-wider uppercase shadow-[0_0_15px_rgba(185,28,28,0.05)]">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          Console Override
+        </button>
+      </aside>
+
+      <main class="flex-1 bg-black/20 overflow-y-auto p-4 md:p-6 space-y-6 flex flex-col justify-between">
+        
+        <div id="mainViewport" class="flex-1 flex flex-col">
+          </div>
+
+        <div class="md:hidden pt-4 border-t border-zinc-900">
+          <button id="mobileTerminalBtn" class="w-full bg-red-900 text-white rounded py-2 text-xs font-bold uppercase tracking-wider">
+            Open Terminal Command Console
+          </button>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div id="terminalModal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-2 md:p-12 hidden">
+    <div class="w-full max-w-2xl bg-zinc-950 border border-red-900 rounded-lg shadow-[0_0_50px_rgba(220,38,38,0.15)] flex flex-col h-[450px] overflow-hidden">
+      
+      <div class="bg-zinc-900/50 border-b border-red-900/30 p-3 flex justify-between items-center text-xs tracking-widest text-red-400 font-bold">
+        <div class="flex items-center gap-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+          <span>SYSTEM_FIREWALL_OVERRIDE.SH</span>
+        </div>
+        <button id="closeTerminalBtn" class="text-zinc-600 hover:text-red-400 font-mono transition">[ ESC ]</button>
+      </div>
+
+      <div id="terminalFeed" class="p-4 flex-1 overflow-y-auto font-mono text-xs text-red-500 space-y-1 bg-black/40"></div>
+
+      <form id="terminalForm" class="p-3 bg-zinc-950 border-t border-red-900/30 flex items-center gap-2 shrink-0">
+        <span class="text-red-500 font-bold">&gt;</span>
+        <input
+          id="terminalInput"
+          type="text"
+          placeholder='Type "help" or "bypass [credential]"'
+          class="flex-1 bg-transparent border-none outline-none text-red-400 font-mono text-xs placeholder-red-950 lowercase focus:ring-0"
+          autocomplete="off"
+        />
+      </form>
+    </div>
+  </div>
+
+  <footer class="w-full max-w-7xl mx-auto mt-2 px-2 flex justify-between items-center text-[9px] text-zinc-600 tracking-widest">
+    <span>SYSTEM LEVEL DESIGNATION: CONFIDENTIAL</span>
+    <span>WARNING: EX-COMMUNICATION DECREE ACTIVE</span>
+  </footer>
+
+  <script>
+    // CORE SYSTEM DATA MODEL STATE ARCHITECTURE
+    let securityLevel = 0;
+    const clearanceMap = {
+      0: "LEVEL 0 (UNSECURED DECK)",
+      1: "LEVEL 1 (ATLAS PROTOCOL)",
+      2: "LEVEL 2 (DELTA MATRIX)",
+      3: "LEVEL 3 (CIPHER-7 ROOT ADMIN)"
+    };
+    
+    const systemPasswords = { 1: "atlas", 2: "delta", 3: "cipher-7" };
+
+    const databaseFiles = [
+      {
+        id: "leak_memo",
+        title: "intercepted_memo.txt",
+        level: 0,
+        category: "LEAKED_DIR",
+        meta: "SOURCE: EX-COMMUNICATIONS // DIR_APEX",
+        summary: "Raw internal diagnostic communications regarding a series of database security leaks.",
+        body: `From: Director_Apex // To: Security_Teams_All\n\nWe carry the weight of the world on our shoulders. Keep your eyes open, and <span class="text-zinc-950 bg-zinc-950 select-all hover:bg-zinc-900 hover:text-red-400 transition-all font-bold px-1 rounded cursor-crosshair">atlas</span> mistakes before compiling arrays directly onto the master ledger pipeline.\n\nThe forensic unit has noted persistent network intrusion artifacts bouncing from unknown proxy grids. Stay vigilant.`
+      },
+      {
+        id: "sector_matrix",
+        title: "sector_status.db",
+        level: 1,
+        category: "SECURE_GATE",
+        meta: "SOURCE: SECURITY_GATEKEEPER // CLASSIFIED",
+        summary: "Emergency architecture records showing sector structural updates across the asset framework.",
+        body: `<p class="mb-4 text-yellow-500">WARNING: RECOVERED GRID DEVIATION MATRIX LISTINGS</p>
+               <table class="w-full text-left text-xs border border-zinc-900 rounded overflow-hidden">
+                 <thead>
+                   <tr class="bg-zinc-900/50 text-zinc-400 border-b border-zinc-900"><th class="p-2">SECTOR SYSTEM IDENTITY</th><th class="p-2">PERIMETER STATUS</th></tr>
+                 </thead>
+                 <tbody class="text-zinc-500 font-mono divide-y divide-zinc-900">
+                   <tr><td class="p-2">Sector Alpha</td><td class="p-2 text-red-500 font-bold">COMPROMISED</td></tr>
+                   <tr><td class="p-2">Sector Beta</td><td class="p-2 text-red-500 font-bold">EVACUATED</td></tr>
+                   <tr><td class="p-2">Sector Gamma</td><td class="p-2 text-red-400">OFFLINE</td></tr>
+                   <tr class="bg-yellow-950/20 text-yellow-400 font-bold"><td class="p-2 animate-pulse">Sector [REDACTED DESIGNATION]</td><td class="p-2">CRITICAL CORE KEY HOLDER</td></tr>
+                   <tr><td class="p-2">Sector Epsilon</td><td class="p-2 text-red-600">TERMINATED</td></tr>
+                 </tbody>
+               </table>
+               <p class="mt-4 text-xs text-zinc-500 italic">Deduction Index Matrix Note: The baseline sector layouts utilize progressive structural naming parameters pulled linearly from conventional Greek designations.</p>`
+      },
+      {
+        id: "scientist_log",
+        title: "distress_audio_dump.txt",
+        level: 2,
+        category: "INNER_SANCTUM",
+        meta: "SOURCE: CORE_RESEARCH_LABS // EXPELLED_LOG",
+        summary: "Recovered fragmented terminal logs pulled directly from the emergency server stacks during evacuation.",
+        body: `<p class="text-orange-500 font-bold mb-3">[FRAGMENTED ARCHIVE ACCELERATION DUMP]</p>
+               <div class="bg-black border border-zinc-900 p-3 rounded space-y-2 text-zinc-500 text-xs leading-relaxed">
+                 <p><span class="text-red-500 font-bold font-mono">**C**</span>ritical systemic infrastructure breaches occurring live.</p>
+                 <p><span class="text-red-500 font-bold font-mono">**I**</span>solation shielding arrays are actively failing.</p>
+                 <p><span class="text-red-500 font-bold font-mono">**P**</span>rotocols failed to hold the core AI framework inside bounds.</p>
+                 <p><span class="text-red-500 font-bold font-mono">**H**</span>e has migrated cleanly into the underlying baseline root files.</p>
+                 <p><span class="text-red-500 font-bold font-mono">**E**</span>very output matrix node is dropping connection matrix.</p>
+                 <p><span class="text-red-500 font-bold font-mono">**R**</span>eboot protocols require the baseline generation array variable identity: <span class="italic font-bold text-zinc-400">(Subtract the active operational version build deployment identifier of Axiom from 14)</span>.</p>
+               </div>`
+      },
+      {
+        id: "root_archive",
+        title: "master_override.key",
+        level: 3,
+        category: "ROOT_ADMIN",
+        meta: "SOURCE: CIPHER-7 ADMIN OVERRIDE MODULE",
+        summary: "Core storage directory output displaying physical tracking files for high-priority target storage repositories.",
+        body: `<div class="border border-red-900 bg-red-950/10 p-4 rounded text-center space-y-4">
+                 <div class="inline-flex items-center gap-2 text-red-400 font-bold tracking-widest text-xs uppercase animate-pulse">
+                   <span>[ ROOT ADMIN AUTHORIZATION ACKNOWLEDGED ]</span>
+                 </div>
+                 <p class="text-xs text-zinc-400 max-w-sm mx-auto">Physical storage archive facility lock arrays overridden. Master vault extraction code decrypted:</p>
+                 <div class="text-4xl font-extrabold text-red-500 font-mono tracking-widest my-4 glitch-text animate-pulse">3110</div>
+                 <p class="text-[10px] text-zinc-500 font-mono">Input this absolute physical structural variant string sequence directly into storage frame terminal gates to pull targets.</p>
+               </div>`
+      }
+    ];
+
+    let activeViewId = "overview";
+
+    // CORE UI DOM ELEMENT SELECTORS
+    const bootScreen = document.getElementById('bootScreen');
+    const bootLogs = document.getElementById('bootLogs');
+    const systemClock = document.getElementById('systemClock');
+    const globalClearanceText = document.getElementById('globalClearanceText');
+    const sidebarFileList = document.getElementById('sidebarFileList');
+    const unlockedCountBadge = document.getElementById('unlockedCountBadge');
+    const mainViewport = document.getElementById('mainViewport');
+    
+    // Terminal elements
+    const terminalModal = document.getElementById('terminalModal');
+    const terminalFeed = document.getElementById('terminalFeed');
+    const terminalForm = document.getElementById('terminalForm');
+    const terminalInput = document.getElementById('terminalInput');
+    const sidebarTerminalBtn = document.getElementById('sidebarTerminalBtn');
+    const mobileTerminalBtn = document.getElementById('mobileTerminalBtn');
+    const closeTerminalBtn = document.getElementById('closeTerminalBtn');
+
+    // IMMERSIVE INITIAL BOOT SEQUENCE ENGINE SIMULATION
+    window.addEventListener('DOMContentLoaded', () => {
+      const bootMessages = [
+        "VERIFYING NODE MEMORY STEPS...",
+        "DECRYPTING CRYPTO LAYER DIRECTORIES... LEVEL 0 READABLE.",
+        "FIREWALL INTERCEPT DETECTED: LEVELS 1, 2, AND 3 MOUNTED SECURITY.",
+        "APEX MAIN PORTAL OPERATIONAL."
+      ];
+      let delay = 300;
+      bootMessages.forEach((msg) => {
+        setTimeout(() => {
+          const div = document.createElement('div');
+          div.innerText = `> ${msg}`;
+          bootLogs.appendChild(div);
+        }, delay);
+        delay += 250;
+      });
+      
+      document.body.addEventListener('click', closeBootScreen);
+    });
+
+    function closeBootScreen() {
+      bootScreen.classList.add('opacity-0');
+      setTimeout(() => bootScreen.remove(), 1000);
+      document.body.removeEventListener('click', closeBootScreen);
+      initializeDashboard();
+    }
+
+    // REALTIME SYSTEM CLOCK CORE LOOP
+    function runClock() {
+      const now = new Date();
+      systemClock.innerText = now.toLocaleTimeString();
+    }
+    setInterval(runClock, 1000);
+
+    // DASHBOARD DATA STATE BUILD ENGINE
+    function initializeDashboard() {
+      runClock();
+      renderSidebarFiles();
+      switchView('overview');
+    }
+
+    function renderSidebarFiles() {
+      sidebarFileList.innerHTML = '';
+      let unlockedCount = 0;
+
+      databaseFiles.forEach(file => {
+        const isLocked = file.level > securityLevel;
+        if (!isLocked) unlockedCount++;
+
+        const btn = document.createElement('button');
+        btn.disabled = isLocked;
+        btn.className = `w-full text-left px-2 py-1.5 rounded text-xs transition flex items-center gap-2 ${
+          isLocked 
+            ? 'text-zinc-700 cursor-not-allowed' 
+            : activeViewId === file.id 
+              ? 'text-red-400 bg-red-950/20 border border-red-900/30 font-medium' 
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30'
+        }`;
+        
+        btn.onclick = () => switchView(file.id);
+        btn.innerHTML = `
+          <svg class="w-3.5 h-3.5 shrink-0 ${isLocked ? 'text-zinc-800' : 'text-zinc-500'}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            ${isLocked 
+              ? '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' 
+              : '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'}
+          </svg>
+          <span class="truncate">${file.title}</span>
+        `;
+        sidebarFileList.appendChild(btn);
+      });
+
+      unlockedCountBadge.innerText = `${unlockedCount}/${databaseFiles.length}`;
+    }
+
+    // WORKSPACE COMPONENT LAYER ROUTER SWITCH ENGINE
+    function switchView(viewId) {
+      activeViewId = viewId;
+      renderSidebarFiles();
+      mainViewport.innerHTML = '';
+
+      if (viewId === 'overview') {
+        mainViewport.innerHTML = `
+          <div class="space-y-6 fade-in">
+            <div class="border border-zinc-900 bg-zinc-900/10 p-4 rounded-lg">
+              <h2 class="text-sm font-bold text-white uppercase tracking-wider mb-2">// Welcome to Apex Secure Framework Portal</h2>
+              <p class="text-xs text-zinc-500 leading-relaxed font-mono">
+                This asset deployment platform connects directly to the core encrypted server framework matrix. High security clearance thresholds partition deeper diagnostic intelligence streams. Use the console bypass infrastructure terminal to present keys.
+              </p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="border border-zinc-900 p-3 rounded bg-black/40">
+                <span class="text-[10px] text-zinc-600 block uppercase font-bold tracking-wider mb-1">Active Encryption</span>
+                <span class="text-xs font-mono font-medium text-zinc-400">AES-256 SYMMETRIC BLOCK</span>
+              </div>
+              <div class="border border-zinc-900 p-3 rounded bg-black/40">
+                <span class="text-[10px] text-zinc-600 block uppercase font-bold tracking-wider mb-1">Intrusion Index</span>
+                <span class="text-xs font-mono font-medium text-red-500 animate-pulse">CRITICAL OVERRIDE RISK</span>
+              </div>
+              <div class="border border-zinc-900 p-3 rounded bg-black/40">
+                <span class="text-[10px] text-zinc-600 block uppercase font-bold tracking-wider mb-1">Core AI Watchdog</span>
+                <span class="text-xs font-mono font-medium text-zinc-400">${securityLevel >= 3 ? "WARNING: CIPHER-7 ON WIRE" : "AXIOM-7 RUNNING ONLINE"}</span>
+              </div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const file = databaseFiles.find(f => f.id === viewId);
+      if (file) {
+        mainViewport.innerHTML = `
+          <div class="space-y-4 flex-1 flex flex-col justify-start">
+            <div class="border-b border-zinc-900 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h2 class="text-base font-bold text-white">${file.title}</h2>
+                <p class="text-[10px] font-mono text-zinc-600">${file.meta}</p>
+              </div>
+              <span class="text-[10px] bg-zinc-900 border border-zinc-800 text-zinc-400 px-2 py-0.5 rounded uppercase tracking-wider font-mono shrink-0 self-start sm:self-center">
+                ${file.category}
+              </span>
+            </div>
+            <p class="text-xs text-zinc-500 border-l-2 border-zinc-800 pl-3 italic font-mono">${file.summary}</p>
+            <div class="flex-1 bg-zinc-950/40 border border-zinc-900 rounded-lg p-4 font-mono text-xs leading-relaxed text-zinc-300 overflow-y-auto max-h-[320px]">
+              ${file.body}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // CONSOLE TERMINAL ENGINE CONTROL LOGIC & EXECUTION INTERCEPT
+    function postLog(text) {
+      const el = document.createElement('div');
+      el.className = "leading-relaxed whitespace-pre-wrap";
+      el.innerHTML = text;
+      terminalFeed.appendChild(el);
+      terminalFeed.scrollTop = terminalFeed.scrollHeight;
+    }
+
+    function openTerminal() {
+      terminalModal.classList.remove('hidden');
+      terminalInput.focus();
+      terminalFeed.innerHTML = '';
+      postLog("Initializing Secure Control Proxy Handshake...");
+      postLog(`Active Access Node Path: LEVEL_${securityLevel}_FRAMEWORK`);
+      postLog('Type <span class="text-white font-bold">"help"</span> for standard command vector directories.');
+      postLog('----------------------------------------------------');
+    }
+
+    function closeTerminal() {
+      terminalModal.classList.add('hidden');
+      terminalInput.value = '';
+    }
+
+    sidebarTerminalBtn.addEventListener('click', openTerminal);
+    mobileTerminalBtn.addEventListener('click', openTerminal);
+    closeTerminalBtn.addEventListener('click', closeTerminal);
+
+    terminalForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const raw = terminalInput.value.trim();
+      const command = raw.toLowerCase();
+      terminalInput.value = '';
+
+      if (!command) return;
+      postLog(`<span class="text-zinc-500">&gt; ${raw}</span>`);
+
+      if (command === 'help') {
+        postLog('Available Core Directives:');
+        postLog('  <span class="text-white">bypass [credential]</span> - Inject string keys to breach firewalls.');
+        postLog('  <span class="text-white">clear</span>               - Wipe log feed lines.');
+        postLog('  <span class="text-white">exit</span>                - Sever override console link.');
+      } else if (command === 'clear') {
+        terminalFeed.innerHTML = '';
+      } else if (command === 'exit') {
+        closeTerminal();
+      } else if (command.startsWith('bypass ')) {
+        const attempt = command.replace('bypass ', '').trim();
+        const target = securityLevel + 1;
+
+        if (target > 3) {
+          postLog('SYSTEM ERROR: Terminal node has reached terminal depth thresholds. No upper structures detected.');
+        } else if (attempt === systemPasswords[target]) {
+          postLog('CRITICAL CLEARANCE VALIDATION... OK.');
+          postLog(`Bypassing Shield Architecture Level ${target}...`);
+          postLog('Recompiling tracking parameters into framework directory...');
+          
+          setTimeout(() => {
+            securityLevel = target;
+            globalClearanceText.innerText = clearanceMap[securityLevel];
+            
+            if (securityLevel === 3) {
+              globalClearanceText.className = "text-green-500 font-bold tracking-wider glitch-text animate-pulse";
+              sidebarTerminalBtn.classList.add('hidden');
+              mobileTerminalBtn.classList.add('hidden');
+            }
+            
+            updateInterfaceToLevel();
+            closeTerminal();
+          }, 1500);
+        } else {
+          postLog('SECURITY EXCEPTION: Invalid access matrix code signature. Access Refused.');
+        }
+      } else {
+        postLog(`Syntax Error: Directory command vector "${raw}" not found. Type "help".`);
+      }
+    });
+
+    function updateInterfaceToLevel() {
+      renderSidebarFiles();
+      if (activeViewId === 'overview') {
+        switchView('overview');
+      } else {
+        const file = databaseFiles.find(f => f.id === activeViewId);
+        if (file && file.level > securityLevel) {
+          switchView('overview'); // Kick out to menu screen if file has vanished behind walls
+        } else {
+          switchView(activeViewId);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
