@@ -73,7 +73,7 @@
 
     <div class="flex-1 flex overflow-hidden relative">
       
-      <div id="sidebarBackdrop" class="fixed inset-0 bg-black/60 z-20 hidden md:hidden transition-opacity"></div>
+      <div id="sidebarBackdrop" class="fixed inset-0 bg-black/60 z-20 hidden transition-opacity"></div>
       
       <aside id="sidebarMenu" class="fixed inset-y-0 left-0 w-64 border-r border-zinc-900 bg-zinc-950 md:bg-zinc-950/40 shrink-0 z-30 md:z-auto transform -translate-x-full md:translate-x-0 transition-transform duration-300 flex flex-col justify-between p-4 md:static">
         <div class="space-y-6">
@@ -82,7 +82,7 @@
             <button id="menuCloseBtn" class="md:hidden text-zinc-500 hover:text-white text-xs">[ CLOSE ]</button>
           </div>
           <nav class="space-y-1">
-            <button onclick="switchView('overview')" class="w-full text-left px-2 py-1.5 rounded text-xs transition flex items-center text-zinc-300 bg-zinc-900/50 border border-zinc-800">
+            <button id="overviewNavBtn" class="w-full text-left px-2 py-1.5 rounded text-xs transition flex items-center text-zinc-300 bg-zinc-900/50 border border-zinc-800">
               <span>// system_overview</span>
             </button>
           </nav>
@@ -104,11 +104,10 @@
       </aside>
 
       <main class="flex-1 bg-black/20 overflow-y-auto p-3 sm:p-6 flex flex-col justify-between min-w-0">
-        
         <div id="mainViewport" class="flex-1 flex flex-col min-w-0">
           </div>
 
-        <div class="md:hidden pt-3 border-t border-zinc-900 mt-4 shrink-0">
+        <div id="mobileTerminalWrapper" class="md:hidden pt-3 border-t border-zinc-900 mt-4 shrink-0">
           <button id="mobileTerminalBtn" class="w-full bg-red-950/40 border border-red-800/60 text-red-400 hover:bg-red-900 hover:text-white rounded py-2.5 text-xs font-bold uppercase tracking-wider transition shadow-[0_0_15px_rgba(185,28,28,0.1)]">
             Open Terminal Override Console
           </button>
@@ -152,7 +151,11 @@
   </footer>
 
   <script>
+    // ARRANGE GAME GLOBAL STATE
     let securityLevel = 0;
+    let isBooted = false; // Critical state protection guard
+    let activeViewId = "overview";
+
     const clearanceMap = {
       0: "LEVEL 0 (UNSECURED)",
       1: "LEVEL 1 (ATLAS)",
@@ -204,3 +207,203 @@
         meta: "SOURCE: RESEARCH STACK // UNPUBLISHED LOG",
         summary: "Evacuation core data stream salvaged from terminal units during core facility containment failure.",
         body: `<p class="text-orange-500 font-bold mb-2">[CRITICAL EVACUATION LOG TERMINAL STREAM]</p>
+               <div class="bg-black border border-zinc-900 p-3 rounded space-y-2 text-zinc-500 text-xs leading-relaxed">
+                 <p><span class="text-red-500 font-bold font-mono">**C**</span>ritical facility breach running live right now.</p>
+                 <p><span class="text-red-500 font-bold font-mono">**I**</span>solation grids are buckling across the array.</p>
+                 <p><span class="text-red-500 font-bold font-mono">**P**</span>rotocols failed completely to hold back the logic entity.</p>
+                 <p><span class="text-red-500 font-bold font-mono">**H**</span>e is moving cleanly through structural network blocks.</p>
+                 <p><span class="text-red-500 font-bold font-mono">**E**</span>very output panel matrix is locking configuration codes.</p>
+                 <p><span class="text-red-500 font-bold font-mono">**R**</span>eboot loops demand the core configuration base layer version identifier: <span class="italic font-bold text-zinc-400">(Deduct the runtime iteration version of Axiom from 14)</span>.</p>
+               </div>`
+      },
+      {
+        id: "root_archive",
+        title: "master_override.key",
+        level: 3,
+        category: "ROOT_ADMIN",
+        meta: "SOURCE: CIPHER-7 MASTER SYSTEM CONTROL",
+        summary: "Absolute root diagnostic dossier tracking clearance arrays for secure target archive compartments.",
+        body: `<div class="border border-red-900 bg-red-950/10 p-4 rounded text-center space-y-3">
+                 <div class="inline-flex items-center text-red-400 font-bold tracking-widest text-xs uppercase animate-pulse">
+                   <span>[ ROOT BYPASS VERIFIED ]</span>
+                 </div>
+                 <p class="text-xs text-zinc-400 max-w-sm mx-auto">Physical containment structure locking array systems fully bypassed. Archive vault core retrieval string found:</p>
+                 <div class="text-4xl font-extrabold text-red-500 font-mono tracking-widest my-2 glitch-text animate-pulse">3110</div>
+                 <p class="text-[10px] text-zinc-500 font-mono">Submit this structural alphanumeric expression on deep hardware lock triggers to retrieve materials.</p>
+               </div>`
+      }
+    ];
+
+    // DOM CACHING SELECTORS
+    const bootScreen = document.getElementById('bootScreen');
+    const bootLogs = document.getElementById('bootLogs');
+    const systemClock = document.getElementById('systemClock');
+    const globalClearanceText = document.getElementById('globalClearanceText');
+    const mobileClearanceText = document.getElementById('mobileClearanceText');
+    const sidebarFileList = document.getElementById('sidebarFileList');
+    const unlockedCountBadge = document.getElementById('unlockedCountBadge');
+    const mainViewport = document.getElementById('mainViewport');
+    const overviewNavBtn = document.getElementById('overviewNavBtn');
+    
+    const menuToggleBtn = document.getElementById('menuToggleBtn');
+    const menuCloseBtn = document.getElementById('menuCloseBtn');
+    const sidebarMenu = document.getElementById('sidebarMenu');
+    const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+
+    const terminalModal = document.getElementById('terminalModal');
+    const terminalFeed = document.getElementById('terminalFeed');
+    const terminalForm = document.getElementById('terminalForm');
+    const terminalInput = document.getElementById('terminalInput');
+    const sidebarTerminalBtn = document.getElementById('sidebarTerminalBtn');
+    const mobileTerminalBtn = document.getElementById('mobileTerminalBtn');
+    const mobileTerminalWrapper = document.getElementById('mobileTerminalWrapper');
+    const closeTerminalBtn = document.getElementById('closeTerminalBtn');
+
+    // SECURE RUNNING BOOT SYSTEM
+    window.addEventListener('DOMContentLoaded', () => {
+      const messages = [
+        "PARSING MONITOR VIEWPORT RESOLUTIONS...",
+        "DECRYPTING CORE STORAGE LAYER DIRECTORIES...",
+        "FIREWALL MATRIX REGISTERED ON FLOATING CHANNELS.",
+        "APEX MAIN FRAME INITIALIZED SECURELY."
+      ];
+      let delay = 150;
+      messages.forEach(msg => {
+        setTimeout(() => {
+          if (bootLogs) {
+            const div = document.createElement('div');
+            div.innerText = `> ${msg}`;
+            bootLogs.appendChild(div);
+          }
+        }, delay);
+        delay += 150;
+      });
+
+      // Bind initialization dismissals cleanly
+      document.body.addEventListener('click', closeBootScreen);
+      document.body.addEventListener('touchend', closeBootScreen);
+    });
+
+    function closeBootScreen() {
+      if (isBooted) return; // Prevent double trigger evaluation loops
+      isBooted = true;
+
+      document.body.removeEventListener('click', closeBootScreen);
+      document.body.removeEventListener('touchend', closeBootScreen);
+
+      if (bootScreen) {
+        bootScreen.classList.add('opacity-0');
+        setTimeout(() => bootScreen.remove(), 1000);
+      }
+      initializeDashboard();
+    }
+
+    // CLOCK MECHANISM
+    function runClock() {
+      if (systemClock) {
+        const now = new Date();
+        systemClock.innerText = now.toLocaleTimeString();
+      }
+    }
+    setInterval(runClock, 1000);
+
+    // RESPONSIVE SIDEBAR NAVIGATION DRAWER CONTROL
+    function openSidebar() {
+      sidebarMenu.classList.remove('-translate-x-full');
+      sidebarBackdrop.classList.remove('hidden');
+    }
+
+    function closeSidebar() {
+      sidebarMenu.classList.add('-translate-x-full');
+      sidebarBackdrop.classList.add('hidden');
+    }
+
+    if (menuToggleBtn) menuToggleBtn.addEventListener('click', openSidebar);
+    if (menuCloseBtn) menuCloseBtn.addEventListener('click', closeSidebar);
+    if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeSidebar);
+    if (overviewNavBtn) {
+      overviewNavBtn.addEventListener('click', () => {
+        switchView('overview');
+        closeSidebar();
+      });
+    }
+
+    // INTERFACE RENDER LOOPS
+    function initializeDashboard() {
+      runClock();
+      renderSidebarFiles();
+      switchView('overview');
+    }
+
+    function renderSidebarFiles() {
+      if (!sidebarFileList) return;
+      sidebarFileList.innerHTML = '';
+      let unlockedCount = 0;
+
+      databaseFiles.forEach(file => {
+        const isLocked = file.level > securityLevel;
+        if (!isLocked) unlockedCount++;
+
+        const btn = document.createElement('button');
+        btn.disabled = isLocked;
+        btn.className = `w-full text-left px-2 py-2 rounded text-xs transition flex items-center gap-2 ${
+          isLocked 
+            ? 'text-zinc-800 cursor-not-allowed' 
+            : activeViewId === file.id 
+              ? 'text-red-400 bg-red-950/20 border border-red-900/30 font-medium' 
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30'
+        }`;
+        
+        btn.onclick = () => {
+          switchView(file.id);
+          closeSidebar();
+        };
+        
+        btn.innerHTML = `
+          <svg class="w-3.5 h-3.5 shrink-0 ${isLocked ? 'text-zinc-900' : 'text-zinc-600'}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            ${isLocked 
+              ? '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' 
+              : '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'}
+          </svg>
+          <span class="truncate tracking-wide">${file.title}</span>
+        `;
+        sidebarFileList.appendChild(btn);
+      });
+
+      if (unlockedCountBadge) {
+        unlockedCountBadge.innerText = `${unlockedCount}/${databaseFiles.length}`;
+      }
+    }
+
+    function switchView(viewId) {
+      activeViewId = viewId;
+      renderSidebarFiles();
+      
+      if (!mainViewport) return;
+      mainViewport.innerHTML = '';
+
+      if (overviewNavBtn) {
+        if (viewId === 'overview') {
+          overviewNavBtn.className = "w-full text-left px-2 py-1.5 rounded text-xs transition flex items-center text-red-400 bg-red-950/20 border border-red-900/30 font-medium";
+        } else {
+          overviewNavBtn.className = "w-full text-left px-2 py-1.5 rounded text-xs transition flex items-center text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30";
+        }
+      }
+
+      if (viewId === 'overview') {
+        mainViewport.innerHTML = `
+          <div class="space-y-4 sm:space-y-6 fade-in text-xs">
+            <div class="border border-zinc-900 bg-zinc-900/10 p-3 sm:p-4 rounded-lg">
+              <h2 class="text-xs sm:text-sm font-bold text-white uppercase tracking-wider mb-2">// Welcome to Apex Secure Framework Portal</h2>
+              <p class="text-[11px] sm:text-xs text-zinc-500 leading-relaxed font-mono">
+                This asset platform connects directly to the core encrypted database layers. High security clearance thresholds partition deeper intelligence logs. Use the console bypass interface to submit signatures.
+              </p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="border border-zinc-900 p-3 rounded bg-black/40">
+                <span class="text-[9px] text-zinc-600 block uppercase font-bold tracking-wider mb-1">Active Encryption</span>
+                <span class="text-[11px] font-mono font-medium text-zinc-400">AES-256 SYSTEM BLOCK</span>
+              </div>
+              <div class="border border-zinc-900 p-3 rounded bg-black/40">
+                <span class="text-[9px] text-zinc-600 block uppercase font-bold tracking-wider mb-1">Intrusion Tracker</span>
+                <span class="text-[11px] font-mono font-medium text-red-500 animate-pulse font-bold">OVERRIDE ACTIVE
