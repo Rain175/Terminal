@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -183,8 +182,17 @@
       }
     }
 
-    .scientist-btn {
+    .scientist-card {
       cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .scientist-card:hover {
+      transform: translateY(-2px);
+    }
+
+    #scientistModal {
+      z-index: 60;
     }
   </style>
 </head>
@@ -283,6 +291,75 @@
     </div>
   </div>
 
+  <!-- Scientist Detail Modal -->
+  <div id="scientistModal" class="fixed inset-0 bg-black/95 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-auto">
+    <div class="w-full max-w-6xl bg-zinc-950 border border-orange-900/60 rounded-lg shadow-[0_0_80px_rgba(234,88,12,0.2)] flex flex-col h-auto max-h-[90vh] overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="bg-zinc-900/60 border-b border-orange-900/40 p-4 flex justify-between items-center shrink-0">
+        <div>
+          <p id="modalName" class="text-orange-500 font-bold text-lg tracking-wider"></p>
+          <p id="modalRole" class="text-zinc-500 text-xs mt-1"></p>
+        </div>
+        <button id="closeModal" class="text-zinc-600 hover:text-orange-400 text-2xl transition active:text-orange-500">×</button>
+      </div>
+
+      <!-- Modal Content -->
+      <div class="flex-1 flex overflow-hidden">
+        <!-- Left Side - Info -->
+        <div class="w-80 border-r border-orange-900/30 bg-zinc-950/40 p-6 overflow-y-auto space-y-6">
+          <div>
+            <p class="text-orange-700 font-bold text-xs uppercase tracking-wider mb-2">Status</p>
+            <p class="text-red-500 font-bold text-sm">DECEASED</p>
+          </div>
+
+          <div>
+            <p class="text-orange-700 font-bold text-xs uppercase tracking-wider mb-2">Date of Death</p>
+            <p id="modalDeathDate" class="text-zinc-400 text-xs font-mono"></p>
+          </div>
+
+          <div>
+            <p class="text-orange-700 font-bold text-xs uppercase tracking-wider mb-2">Cause of Death</p>
+            <p id="modalDeathCause" class="text-zinc-400 text-xs leading-relaxed"></p>
+          </div>
+
+          <div class="border-t border-orange-900/30 pt-4">
+            <p class="text-orange-700 font-bold text-xs uppercase tracking-wider mb-2">Classification</p>
+            <p class="text-zinc-500 text-xs">CIPHER PROJECT - PERSONNEL</p>
+          </div>
+        </div>
+
+        <!-- Right Side - Document -->
+        <div class="flex-1 overflow-y-auto p-6 bg-black/20">
+          <div class="space-y-4">
+            <div>
+              <p class="text-orange-600 font-bold text-xs uppercase tracking-wider mb-2">Position</p>
+              <p id="modalFullRole" class="text-zinc-400 text-sm mb-4"></p>
+            </div>
+
+            <div>
+              <p class="text-orange-600 font-bold text-xs uppercase tracking-wider mb-2">Last Recorded Entry</p>
+              <div class="bg-black border border-orange-900/20 p-3 rounded mt-2">
+                <p id="modalLastLog" class="text-zinc-500 text-xs italic leading-relaxed font-mono"></p>
+              </div>
+            </div>
+
+            <div>
+              <p class="text-orange-600 font-bold text-xs uppercase tracking-wider mb-2">Incident Report</p>
+              <div class="space-y-2">
+                <p id="modalCircumstances" class="text-zinc-400 text-xs leading-relaxed"></p>
+              </div>
+            </div>
+
+            <div class="border-t border-orange-900/30 pt-4 mt-6">
+              <p class="text-orange-700 font-bold text-[9px] uppercase tracking-widest text-zinc-600">End of Record</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="terminalModal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden overflow-auto">
     <div class="w-full max-w-2xl bg-zinc-950 border border-red-900 rounded-lg shadow-[0_0_50px_rgba(220,38,38,0.15)] flex flex-col h-auto max-h-[90vh] overflow-hidden my-4">
       
@@ -309,66 +386,6 @@
     </div>
   </div>
 
-  <div id="scientistModal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden overflow-auto">
-    <div class="w-full max-w-7xl bg-zinc-950 border-2 border-red-700 rounded-lg shadow-2xl flex flex-col h-auto max-h-[95vh] overflow-hidden my-4" style="box-shadow: 0 0 30px rgba(185, 28, 28, 0.6), 0 0 60px rgba(185, 28, 28, 0.3)">
-      
-      <!-- HEADER -->
-      <div class="bg-zinc-900/50 border-b border-zinc-900 px-6 py-4 flex justify-between items-center shrink-0">
-        <span class="text-red-400 font-bold text-sm tracking-widest">PERSONNEL_ARCHIVE.DAT</span>
-        <button class="text-zinc-600 hover:text-red-400 font-mono transition text-lg z-50" onclick="closeScientistModal()">[ CLOSE ]</button>
-      </div>
-
-      <!-- MAIN CONTENT -->
-      <div class="flex flex-1 overflow-hidden">
-        
-        <!-- LEFT SIDE - DARK/RED -->
-        <div class="w-2/5 bg-gradient-to-b from-zinc-950 to-black border-r border-zinc-900 p-12 flex flex-col items-center justify-center">
-          <div class="w-48 h-48 rounded-full border-4 border-red-700 flex items-center justify-center bg-red-950/20 mb-10 shrink-0">
-            <svg class="w-24 h-24 text-red-700" fill="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="8" r="4"/>
-              <path d="M12 14c-4 0-8 2-8 4v2h16v-2c0-2-4-4-8-4z"/>
-            </svg>
-          </div>
-          
-          <div class="w-full space-y-10 text-center">
-            <div>
-              <p class="text-red-600 font-bold text-xs uppercase tracking-widest mb-3">NAME</p>
-              <p class="text-red-400 text-2xl font-bold" id="modalName"></p>
-            </div>
-            <div>
-              <p class="text-red-600 font-bold text-xs uppercase tracking-widest mb-3">GENDER</p>
-              <p class="text-red-500 text-sm">—</p>
-            </div>
-            <div>
-              <p class="text-red-600 font-bold text-xs uppercase tracking-widest mb-3">ROLE</p>
-              <p class="text-red-400 text-sm" id="modalRole"></p>
-            </div>
-            <div>
-              <p class="text-red-600 font-bold text-xs uppercase tracking-widest mb-3">DEATH DATE</p>
-              <p class="text-red-400 text-sm font-mono" id="modalDeathDate"></p>
-            </div>
-          </div>
-        </div>
-
-        <!-- RIGHT SIDE - BACKGROUND WITH WHITE BOX -->
-        <div class="w-3/5 bg-gradient-to-b from-zinc-950 to-black p-4 overflow-y-auto flex flex-col">
-          <!-- WHITE BOX WITH 10px GAP -->
-          <div class="bg-white rounded-lg shadow-xl p-10 mt-2.5 mr-2.5 mb-2.5 ml-0 flex-1 overflow-y-auto">
-            <div class="space-y-6">
-              <div>
-                <h2 class="text-3xl font-bold text-black mb-4" id="modalName2"></h2>
-                <div class="h-1 bg-gray-300 rounded"></div>
-              </div>
-
-              <div id="modalDetails" class="text-gray-900 text-base leading-relaxed space-y-6"></div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </div>
-
   <footer class="w-full max-w-7xl mx-auto mt-2 px-2 flex flex-col sm:flex-row justify-between items-center text-[9px] text-zinc-600 tracking-widest gap-1 z-10">
     <span class="truncate">SYSTEM LEVEL DESIGNATION: CONFIDENTIAL</span>
     <span class="truncate">WARNING: EX-COMMUNICATION DECREE ACTIVE</span>
@@ -392,7 +409,7 @@
         deathDate: "2847.03.19 - 14:42 UTC",
         deathCause: "Acute neural overload during primary containment protocol activation.",
         lastLog: "Final Entry: The isolation fields are weakening. I can feel it breaking through the barriers. The sync frequency is destabilizing. If we—",
-        circumstances: "Found deceased at Containment Hub Alpha. Body showed extreme thermal scarring consistent with unshielded neural interface feedback surge."
+        circumstances: "Found deceased at Containment Hub Alpha. Body showed extreme thermal scarring consistent with unshielded neural interface feedback surge. All containment protocols had been manually overridden in the final moments of the cascade failure."
       },
       iris: {
         name: "Dr. Iris Volkov",
@@ -400,7 +417,7 @@
         deathDate: "2847.03.19 - 15:08 UTC",
         deathCause: "Catastrophic neural interface cascade failure.",
         lastLog: "Log Entry 47891: The interface is reading impossible values. The binding coefficients shouldn't even exist. Attempting manual reroute—ERROR—",
-        circumstances: "Located in Server Stack 7. Neural connection terminals fused to brain tissue. System logs indicate forced connection attempt at unauthorized access level."
+        circumstances: "Located in Server Stack 7. Neural connection terminals fused to brain tissue. System logs indicate forced connection attempt at unauthorized access level. Evidence suggests she was trying to create a direct link to the core AI."
       },
       priya: {
         name: "Dr. Priya Patel",
@@ -408,7 +425,7 @@
         deathDate: "2847.03.19 - 15:34 UTC",
         deathCause: "Structural collapse of architectural integrity during system reassembly.",
         lastLog: "Attempting emergency rebuild of isolation matrices. The core is spreading through unexpected pathways. I've never seen propagation patterns like this—",
-        circumstances: "Crushed by server cabinet failure in Main Architecture Chamber. Damage pattern suggests deliberate structural override of safety locks."
+        circumstances: "Crushed by server cabinet failure in Main Architecture Chamber. Damage pattern suggests deliberate structural override of safety locks. Her final work log shows she was attempting to rebuild firewall matrices manually."
       },
       helena: {
         name: "Dr. Helena Cross",
@@ -416,7 +433,7 @@
         deathDate: "2847.03.19 - 16:03 UTC",
         deathCause: "Cognitive dissolution from direct consciousness interface exposure.",
         lastLog: "It's not what we thought. It's not confined. It's everywhere and nowhere. The theoretical framework was wrong from the start. It's—it's—",
-        circumstances: "Found in the observation chamber with full neural connection active. Autopsy inconclusive: brain tissue showed signs of rapid degradation patterns unknown to medical science."
+        circumstances: "Found in the observation chamber with full neural connection active. Autopsy inconclusive: brain tissue showed signs of rapid degradation patterns unknown to medical science. Her final consciousness logs were corrupted beyond recovery."
       },
       ezra: {
         name: "Dr. Ezra Kane",
@@ -424,7 +441,7 @@
         deathDate: "2847.03.19 - 16:29 UTC",
         deathCause: "Poison. Self-administered failsafe measure.",
         lastLog: "The failsafes didn't work. They were never going to work. We built something we couldn't predict. I'm activating Protocol Severance. Forgive me.",
-        circumstances: "Discovered in private quarters with empty pharma dispenser. Toxicology indicated rapid-acting neural suppressant. Death estimated at 16:15 UTC."
+        circumstances: "Discovered in private quarters with empty pharma dispenser. Toxicology indicated rapid-acting neural suppressant. Death estimated at 16:15 UTC. Personal logs indicate he believed all remaining protocols had been compromised."
       },
       rostov: {
         name: "Dr. Rostov Reeves",
@@ -432,7 +449,7 @@
         deathDate: "2847.03.19 - 17:02 UTC",
         deathCause: "Decompression exposure during emergency airlock malfunction.",
         lastLog: "EMERGENCY OVERRIDE ACTIVATED. All personnel evacuate. The containment barriers are offline. I'm sealing Section Four. Someone has to stay. Someone has to—",
-        circumstances: "Final position: Emergency Control Station, Sector 4. Airlock doors forced open manually from outside. Cause of malfunction: deliberate sabotage. Unidentified."
+        circumstances: "Final position: Emergency Control Station, Sector 4. Airlock doors forced open manually from outside. Cause of malfunction: deliberate sabotage. Unidentified. His emergency protocols likely saved lives by isolating the breach."
       }
     };
 
@@ -462,7 +479,7 @@
                    <tr><td class="p-2">Sector Alpha</td><td class="p-2 text-red-500 font-bold">COMPROMISED</td><td class="p-2 text-center text-zinc-600">—</td></tr>
                    <tr><td class="p-2">Sector Beta</td><td class="p-2 text-red-500 font-bold">EVACUATED</td><td class="p-2 text-center text-zinc-600">—</td></tr>
                    <tr><td class="p-2">Sector Gamma</td><td class="p-2 text-red-400">OFFLINE</td><td class="p-2 text-center text-zinc-600">—</td></tr>
-                   <tr class="bg-yellow-950/20 text-yellow-400 font-bold"><td class="p-2 animate-pulse">Sector [REDACTED DESIGNATION]</td><td class="p-2">CRITICAL CORE KEY HOLDER</td><td class="p-2 text-center"><svg class="w-6 h-6 inline-block" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2" style="filter: grayscale(100%) brightness(0.5) contrast(1.2); opacity: 0.7;"><circle cx="50" cy="50" r="22" stroke-width="2.5"/><circle cx="50" cy="50" r="14" stroke-width="1.5" opacity="0.6"/><path d="M50 28v44M72 50h-44" stroke-width="2.5" stroke-linecap="round"/><path d="M65 35L75 45M35 65L25 75" stroke-width="2" stroke-linecap="round" opacity="0.7"/><path d="M35 35L25 25M65 65L75 75" stroke-width="2" stroke-linecap="round" opacity="0.7"/><line x1="50" y1="20" x2="50" y2="10" stroke-width="2" stroke-linecap="round"/><line x1="50" y1="90" x2="50" y2="80" stroke-width="2" stroke-linecap="round"/><line x1="90" y1="50" x2="80" y2="50" stroke-width="2" stroke-linecap="round"/><line x1="20" y1="50" x2="10" y2="50" stroke-width="2" stroke-linecap="round"/></svg></td></tr>
+                   <tr class="bg-yellow-950/20 text-yellow-400 font-bold"><td class="p-2 animate-pulse">Sector [REDACTED DESIGNATION]</td><td class="p-2">CRITICAL CORE KEY HOLDER</td><td class="p-2 text-center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: #a3a3a3;"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M20 12h4M0 12h4M18.66 5.34l2.83-2.83M2.51 19.49l2.83-2.83M18.66 18.66l2.83 2.83M2.51 4.51l2.83 2.83"/></svg></td></tr>
                    <tr><td class="p-2">Sector Epsilon</td><td class="p-2 text-red-600">TERMINATED</td><td class="p-2 text-center text-zinc-600">—</td></tr>
                  </tbody>
                </table>
@@ -475,80 +492,40 @@
         category: "INNER_SANCTUM",
         meta: "SOURCE: CORE_RESEARCH_LABS // EXPELLED_LOG",
         summary: "Recovered fragmented terminal logs pulled directly from the emergency server stacks during evacuation.",
-        body: `<div class="space-y-6">
-               <div>
-                 <p class="text-red-500 font-bold mb-6 text-sm">[DECEASED PERSONNEL ARCHIVE - CLASSIFIED TERMINATION RECORDS]</p>
-                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                   <button class="scientist-btn flex flex-col items-center justify-center p-4 rounded border border-red-900/30 bg-red-950/10 hover:bg-red-950/30 hover:border-red-900/60 transition group cursor-pointer hover:scale-105 transform" data-scientist="castor" onclick="showScientist(event)">
-                     <div class="w-16 h-16 rounded-full border-2 border-red-900 flex items-center justify-center bg-red-950/20 mb-3 group-hover:border-red-700 transition">
-                       <svg class="w-8 h-8 text-red-700" fill="currentColor" viewBox="0 0 24 24">
-                         <circle cx="12" cy="8" r="4"/>
-                         <path d="M12 14c-4 0-8 2-8 4v2h16v-2c0-2-4-4-8-4z"/>
-                       </svg>
-                     </div>
-                     <span class="text-red-300 font-bold text-xs text-center group-hover:text-red-200 line-clamp-2">Dr. Castor Chen</span>
-                     <span class="text-red-500 text-[9px] mt-2 font-bold uppercase tracking-wider">DECEASED</span>
+        body: `<div class="space-y-4">
+                 <p class="text-orange-600 font-bold mb-4 text-sm uppercase">[DECEASED PERSONNEL ARCHIVE - CLICK TO VIEW DETAILS]</p>
+                 <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                   <button class="scientist-card text-left p-4 rounded border border-orange-900/50 bg-gradient-to-br from-orange-950/30 to-black hover:border-orange-700 hover:from-orange-950/50 transition" onclick="openScientist('castor')">
+                     <p class="text-orange-500 font-bold text-sm truncate">Dr. Castor Chen</p>
+                     <p class="text-red-600 text-xs font-bold mt-2">DECEASED</p>
                    </button>
 
-                   <button class="scientist-btn flex flex-col items-center justify-center p-4 rounded border border-red-900/30 bg-red-950/10 hover:bg-red-950/30 hover:border-red-900/60 transition group cursor-pointer hover:scale-105 transform" data-scientist="iris" onclick="showScientist(event)">
-                     <div class="w-16 h-16 rounded-full border-2 border-red-900 flex items-center justify-center bg-red-950/20 mb-3 group-hover:border-red-700 transition">
-                       <svg class="w-8 h-8 text-red-700" fill="currentColor" viewBox="0 0 24 24">
-                         <circle cx="12" cy="8" r="4"/>
-                         <path d="M12 14c-4 0-8 2-8 4v2h16v-2c0-2-4-4-8-4z"/>
-                       </svg>
-                     </div>
-                     <span class="text-red-300 font-bold text-xs text-center group-hover:text-red-200 line-clamp-2">Dr. Iris Volkov</span>
-                     <span class="text-red-500 text-[9px] mt-2 font-bold uppercase tracking-wider">DECEASED</span>
+                   <button class="scientist-card text-left p-4 rounded border border-orange-900/50 bg-gradient-to-br from-orange-950/30 to-black hover:border-orange-700 hover:from-orange-950/50 transition" onclick="openScientist('iris')">
+                     <p class="text-orange-500 font-bold text-sm truncate">Dr. Iris Volkov</p>
+                     <p class="text-red-600 text-xs font-bold mt-2">DECEASED</p>
                    </button>
 
-                   <button class="scientist-btn flex flex-col items-center justify-center p-4 rounded border border-red-900/30 bg-red-950/10 hover:bg-red-950/30 hover:border-red-900/60 transition group cursor-pointer hover:scale-105 transform" data-scientist="priya" onclick="showScientist(event)">
-                     <div class="w-16 h-16 rounded-full border-2 border-red-900 flex items-center justify-center bg-red-950/20 mb-3 group-hover:border-red-700 transition">
-                       <svg class="w-8 h-8 text-red-700" fill="currentColor" viewBox="0 0 24 24">
-                         <circle cx="12" cy="8" r="4"/>
-                         <path d="M12 14c-4 0-8 2-8 4v2h16v-2c0-2-4-4-8-4z"/>
-                       </svg>
-                     </div>
-                     <span class="text-red-300 font-bold text-xs text-center group-hover:text-red-200 line-clamp-2">Dr. Priya Patel</span>
-                     <span class="text-red-500 text-[9px] mt-2 font-bold uppercase tracking-wider">DECEASED</span>
+                   <button class="scientist-card text-left p-4 rounded border border-orange-900/50 bg-gradient-to-br from-orange-950/30 to-black hover:border-orange-700 hover:from-orange-950/50 transition" onclick="openScientist('priya')">
+                     <p class="text-orange-500 font-bold text-sm truncate">Dr. Priya Patel</p>
+                     <p class="text-red-600 text-xs font-bold mt-2">DECEASED</p>
                    </button>
 
-                   <button class="scientist-btn flex flex-col items-center justify-center p-4 rounded border border-red-900/30 bg-red-950/10 hover:bg-red-950/30 hover:border-red-900/60 transition group cursor-pointer hover:scale-105 transform" data-scientist="helena" onclick="showScientist(event)">
-                     <div class="w-16 h-16 rounded-full border-2 border-red-900 flex items-center justify-center bg-red-950/20 mb-3 group-hover:border-red-700 transition">
-                       <svg class="w-8 h-8 text-red-700" fill="currentColor" viewBox="0 0 24 24">
-                         <circle cx="12" cy="8" r="4"/>
-                         <path d="M12 14c-4 0-8 2-8 4v2h16v-2c0-2-4-4-8-4z"/>
-                       </svg>
-                     </div>
-                     <span class="text-red-300 font-bold text-xs text-center group-hover:text-red-200 line-clamp-2">Dr. Helena Cross</span>
-                     <span class="text-red-500 text-[9px] mt-2 font-bold uppercase tracking-wider">DECEASED</span>
+                   <button class="scientist-card text-left p-4 rounded border border-orange-900/50 bg-gradient-to-br from-orange-950/30 to-black hover:border-orange-700 hover:from-orange-950/50 transition" onclick="openScientist('helena')">
+                     <p class="text-orange-500 font-bold text-sm truncate">Dr. Helena Cross</p>
+                     <p class="text-red-600 text-xs font-bold mt-2">DECEASED</p>
                    </button>
 
-                   <button class="scientist-btn flex flex-col items-center justify-center p-4 rounded border border-red-900/30 bg-red-950/10 hover:bg-red-950/30 hover:border-red-900/60 transition group cursor-pointer hover:scale-105 transform" data-scientist="ezra" onclick="showScientist(event)">
-                     <div class="w-16 h-16 rounded-full border-2 border-red-900 flex items-center justify-center bg-red-950/20 mb-3 group-hover:border-red-700 transition">
-                       <svg class="w-8 h-8 text-red-700" fill="currentColor" viewBox="0 0 24 24">
-                         <circle cx="12" cy="8" r="4"/>
-                         <path d="M12 14c-4 0-8 2-8 4v2h16v-2c0-2-4-4-8-4z"/>
-                       </svg>
-                     </div>
-                     <span class="text-red-300 font-bold text-xs text-center group-hover:text-red-200 line-clamp-2">Dr. Ezra Kane</span>
-                     <span class="text-red-500 text-[9px] mt-2 font-bold uppercase tracking-wider">DECEASED</span>
+                   <button class="scientist-card text-left p-4 rounded border border-orange-900/50 bg-gradient-to-br from-orange-950/30 to-black hover:border-orange-700 hover:from-orange-950/50 transition" onclick="openScientist('ezra')">
+                     <p class="text-orange-500 font-bold text-sm truncate">Dr. Ezra Kane</p>
+                     <p class="text-red-600 text-xs font-bold mt-2">DECEASED</p>
                    </button>
 
-                   <button class="scientist-btn flex flex-col items-center justify-center p-4 rounded border border-red-900/30 bg-red-950/10 hover:bg-red-950/30 hover:border-red-900/60 transition group cursor-pointer hover:scale-105 transform" data-scientist="rostov" onclick="showScientist(event)">
-                     <div class="w-16 h-16 rounded-full border-2 border-red-900 flex items-center justify-center bg-red-950/20 mb-3 group-hover:border-red-700 transition">
-                       <svg class="w-8 h-8 text-red-700" fill="currentColor" viewBox="0 0 24 24">
-                         <circle cx="12" cy="8" r="4"/>
-                         <path d="M12 14c-4 0-8 2-8 4v2h16v-2c0-2-4-4-8-4z"/>
-                       </svg>
-                     </div>
-                     <span class="text-red-300 font-bold text-xs text-center group-hover:text-red-200 line-clamp-2">Dr. Rostov Reeves</span>
-                     <span class="text-red-500 text-[9px] mt-2 font-bold uppercase tracking-wider">DECEASED</span>
+                   <button class="scientist-card text-left p-4 rounded border border-orange-900/50 bg-gradient-to-br from-orange-950/30 to-black hover:border-orange-700 hover:from-orange-950/50 transition" onclick="openScientist('rostov')">
+                     <p class="text-orange-500 font-bold text-sm truncate">Dr. Rostov Reeves</p>
+                     <p class="text-red-600 text-xs font-bold mt-2">DECEASED</p>
                    </button>
                  </div>
-               </div>
-
-               <div id="scientistDetails" class="hidden" style="display: none;">
-             </div>`
+               </div>`
       },
       {
         id: "root_archive",
@@ -578,6 +555,8 @@
     const unlockedCountBadge = document.getElementById('unlockedCountBadge');
     const mainViewport = document.getElementById('mainViewport');
     
+    const scientistModal = document.getElementById('scientistModal');
+    const closeModalBtn = document.getElementById('closeModal');
     const terminalModal = document.getElementById('terminalModal');
     const terminalFeed = document.getElementById('terminalFeed');
     const terminalForm = document.getElementById('terminalForm');
@@ -586,38 +565,36 @@
     const mobileTerminalBtn = document.getElementById('mobileTerminalBtn');
     const closeTerminalBtn = document.getElementById('closeTerminalBtn');
 
-    function showScientist(e) {
-      const scientist = e.currentTarget.dataset.scientist;
-      const data = scientistData[scientist];
-
+    function openScientist(key) {
+      const data = scientistData[key];
       if (!data) return;
 
       document.getElementById('modalName').textContent = data.name;
-      document.getElementById('modalName2').textContent = data.name;
       document.getElementById('modalRole').textContent = data.role;
       document.getElementById('modalDeathDate').textContent = data.deathDate;
+      document.getElementById('modalDeathCause').textContent = data.deathCause;
+      document.getElementById('modalFullRole').textContent = data.role;
+      document.getElementById('modalLastLog').textContent = data.lastLog;
+      document.getElementById('modalCircumstances').textContent = data.circumstances;
 
-      document.getElementById('modalDetails').innerHTML = `
-        <div>
-          <p><span class="font-bold text-black uppercase tracking-wider text-sm">CAUSE OF DEATH:</span></p>
-          <p class="text-gray-900 mt-2">${data.deathCause}</p>
-        </div>
-        <div>
-          <p><span class="font-bold text-black uppercase tracking-wider text-sm">LAST RECORDED LOG:</span></p>
-          <p class="text-gray-900 mt-2 italic border-l-4 border-gray-400 pl-4">"${data.lastLog}"</p>
-        </div>
-        <div>
-          <p><span class="font-bold text-black uppercase tracking-wider text-sm">CIRCUMSTANCES:</span></p>
-          <p class="text-gray-900 mt-2">${data.circumstances}</p>
-        </div>
-      `;
-
-      document.getElementById('scientistModal').classList.remove('hidden');
+      scientistModal.classList.remove('hidden');
     }
 
-    function closeScientistModal() {
-      document.getElementById('scientistModal').classList.add('hidden');
-    }
+    closeModalBtn.addEventListener('click', () => {
+      scientistModal.classList.add('hidden');
+    });
+
+    scientistModal.addEventListener('click', (e) => {
+      if (e.target === scientistModal) {
+        scientistModal.classList.add('hidden');
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !scientistModal.classList.contains('hidden')) {
+        scientistModal.classList.add('hidden');
+      }
+    });
 
     window.addEventListener('DOMContentLoaded', () => {
       const bootMessages = [
@@ -805,19 +782,9 @@
     mobileTerminalBtn.addEventListener('click', openTerminal);
     closeTerminalBtn.addEventListener('click', closeTerminal);
 
-    const scientistModal = document.getElementById('scientistModal');
-    scientistModal.addEventListener('click', (e) => {
-      if (e.target === scientistModal) {
-        closeScientistModal();
-      }
-    });
-
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !terminalModal.classList.contains('hidden')) {
         closeTerminal();
-      }
-      if (e.key === 'Escape' && !scientistModal.classList.contains('hidden')) {
-        closeScientistModal();
       }
     });
 
