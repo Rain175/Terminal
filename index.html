@@ -155,195 +155,690 @@
     .dev-activity h4 { color: #4ade80; font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; margin-bottom: .6rem; border-bottom: 1px solid #14532d; padding-bottom: .3rem; }
     .activity-line { font-size: .65rem; color: #4b5563; padding: .25rem 0; border-bottom: 1px solid #0a1a0f; display: flex; gap: .75rem; }
     .activity-line .ts { color: #14532d; flex-shrink: 0; }
+    .activity-line .action { color: #86efac; }
+    .no-player-msg { color: #14532d; font-size: .7rem; text-align: center; padding: 3rem 1rem; line-height: 2; }
+    .dev-refresh-btn { background: #0a1a0f; border: 1px solid #14532d; color: #4ade80; font-family: inherit; font-size: .6rem; padding: .35rem .75rem; min-height: 32px; cursor: pointer; border-radius: 3px; margin-bottom: .75rem; width: 100%; }
+    .dev-refresh-btn:hover { background: #14532d; }
+    .no-players-msg { color: #14532d; font-size: .65rem; text-align: center; padding: 2rem 1rem; line-height: 2; }
+    .dev-clear-btn { background: transparent; border: 1px solid #7f1d1d; color: #f87171; font-family: inherit; font-size: .6rem; padding: .3rem .65rem; min-height: 32px; cursor: pointer; border-radius: 3px; margin-top: .5rem; width: 100%; }
+    .dev-clear-btn:hover { background: #7f1d1d22; }
+    @media (max-width: 640px) {
+      .dev-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .dev-players { max-height: 200px; border-right: none; border-bottom: 1px solid #14532d; overflow: hidden; }
+      .dev-players h3 { margin-bottom: 0.5rem; }
+      .player-btn { font-size: 0.7rem; padding: 0.5rem; min-height: 48px; }
+      .dev-view { padding: 0.75rem; }
+      .dev-stat-grid { grid-template-columns: 1fr; }
+      .dev-header { flex-direction: column; align-items: flex-start; gap: 0.75rem; padding: 0.75rem; }
+      .dev-header h2 { font-size: 0.65rem; }
+      #closeDevConsole { align-self: flex-end; }
+    }
   </style>
 </head>
-<body class="crt-scanlines">
-  <!-- Page content here -->
-  <script>
-    /* ══════════════════════════════════════════
-       SESSION ID GENERATION — FIXED VERSION
-    ══════════════════════════════════════════ */
-    
-    // Initialize SESSION_ID BEFORE anything else
-    let SESSION_ID = null;
-    
-    function initializeSessionID() {
-      // First, try to get from sessionStorage
-      SESSION_ID = sessionStorage.getItem('sessionId');
-      
-      // If not found, generate a new one
-      if (!SESSION_ID) {
-        SESSION_ID = 'user_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
-        sessionStorage.setItem('sessionId', SESSION_ID);
-      }
-      
-      // Validation: ensure SESSION_ID is a valid string
-      if (typeof SESSION_ID !== 'string' || SESSION_ID.length === 0) {
-        console.error('❌ SESSION_ID initialization failed, regenerating...');
-        SESSION_ID = 'user_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
-        sessionStorage.setItem('sessionId', SESSION_ID);
-      }
-      
-      console.log('✓ Session ID initialized:', SESSION_ID);
-      return SESSION_ID;
+<body class="relative flex flex-col justify-between text-zinc-400">
+
+  <!-- ══════════════════════════════════════
+       DEV CONSOLE (Admin Panel)
+  ══════════════════════════════════════ -->
+  <div id="devConsole">
+    <div class="dev-header">
+      <div>
+        <h2>⬡ APEX Admin // Player Activity Monitor</h2>
+        <span id="devPlayerCount">Loading...</span>
+      </div>
+      <button id="closeDevConsole">[ CLOSE ]</button>
+    </div>
+    <div class="dev-body">
+      <div class="dev-players">
+        <h3>Active Sessions</h3>
+        <button class="dev-refresh-btn" onclick="refreshDevConsole()">↻ Refresh List</button>
+        <div id="playerList"></div>
+        <button class="dev-clear-btn" onclick="clearAllSessions()">✕ Clear All Sessions</button>
+      </div>
+      <div class="dev-view" id="devView">
+        <p class="no-player-msg">
+          ← Select a player<br>from the list to<br>view their activity
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="fixed inset-0 crt-scanlines z-40"></div>
+
+  <div id="bootScreen" class="fixed inset-0 bg-black z-50 flex flex-col p-6 font-mono text-xs text-zinc-500 justify-between transition-opacity duration-1000 cursor-pointer" style="display:none;">
+    <div id="bootLogs" class="space-y-1">
+      <div>[ MAIN SYSTEM BOOT INITIALIZED ]</div>
+      <div>LOADING APEX FOUNDATION CORE NETWORK DRIVERS... SUCCESS.</div>
+      <div>ESTABLISHING ENCRYPTED HANDSHAKE WITH PORTAL NODE_09... DONE.</div>
+    </div>
+    <div class="text-zinc-400 animate-pulse">INITIALIZING SECURE ARCHIVE FRAMEWORK... READY. CLICK ANYWHERE TO CONSOLE CONNECT.</div>
+  </div>
+
+  <div id="mobileFileMenu" class="fixed top-0 left-0 right-0 z-30 bg-zinc-950 border-b border-zinc-900 md:hidden max-h-48 overflow-y-auto -webkit-overflow-scrolling-touch">
+    <div class="p-2 space-y-1">
+      <button onclick="switchView('overview')" class="w-full text-left px-2 py-1.5 rounded text-[10px] transition flex items-center text-zinc-300 bg-zinc-900/50 border border-zinc-800 hover:bg-zinc-900 hover:text-white active:bg-red-950">
+        📋 // system_overview
+      </button>
+      <div id="mobileFileList"></div>
+    </div>
+  </div>
+
+  <div class="w-full min-h-screen flex flex-col relative z-10 p-1 sm:p-2 md:p-4 overflow-hidden pt-0 md:pt-0 md:mt-0" style="margin-top:0;">
+    <div id="menuSpacer" class="h-0 md:h-0 transition-all duration-200"></div>
+    <div class="flex-1 bg-zinc-950 border border-zinc-900 rounded-lg md:rounded-lg shadow-2xl flex flex-col overflow-hidden w-full min-h-screen md:min-h-auto">
+      <header class="h-12 sm:h-13 md:h-14 border-b border-zinc-900 bg-zinc-900/20 px-2 sm:px-3 md:px-4 flex justify-between items-center shrink-0 gap-2 min-h-[48px]">
+        <div class="flex items-center gap-1 sm:gap-2 md:gap-4 min-w-0 overflow-hidden">
+          <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+            <span class="w-2 h-2 rounded-full bg-red-500 animate-ping shrink-0"></span>
+            <span class="font-bold text-white text-[10px] sm:text-xs md:text-sm tracking-widest whitespace-nowrap">APEX NET</span>
+          </div>
+          <div class="hidden lg:flex items-center gap-2 text-[9px] bg-zinc-900/60 px-2 py-1 rounded border border-zinc-800 text-zinc-500">
+            <span>PORT: 3110</span>
+            <span class="text-zinc-700">|</span>
+            <span>STATUS: INTRUSION DETECTED</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 sm:gap-2 md:gap-6 text-[9px] sm:text-xs font-medium min-w-0 shrink-0">
+          <div class="hidden sm:block text-right min-w-max">
+            <span class="text-[8px] sm:text-[9px] text-zinc-600 block uppercase tracking-wider">Clearance</span>
+            <span id="globalClearanceText" class="text-red-500 font-bold tracking-wider text-[9px] sm:text-xs">LVL 0</span>
+          </div>
+          <div class="text-right">
+            <span class="text-[8px] sm:text-[9px] text-zinc-600 block uppercase tracking-wider">Time</span>
+            <span id="systemClock" class="text-zinc-300 font-bold text-[9px] sm:text-xs">00:00</span>
+          </div>
+        </div>
+      </header>
+      <div class="flex-1 flex overflow-hidden">
+        <aside class="w-56 lg:w-64 border-r border-zinc-900 bg-zinc-950/40 shrink-0 hidden md:flex flex-col justify-between p-3 md:p-4 overflow-y-auto">
+          <div class="space-y-4 md:space-y-6">
+            <div>
+              <span class="text-[9px] md:text-[10px] font-bold text-zinc-600 tracking-widest uppercase block mb-2 md:mb-3">Core Directories</span>
+              <nav class="space-y-1">
+                <button onclick="switchView('overview')" class="w-full text-left px-2 py-1.5 rounded text-xs transition flex items-center justify-between text-zinc-300 bg-zinc-900/50 border border-zinc-800 hover:bg-zinc-900 hover:text-white">
+                  <span class="truncate">// system_overview</span>
+                </button>
+              </nav>
+            </div>
+            <div>
+              <div class="flex justify-between items-center mb-2 md:mb-3">
+                <span class="text-[9px] md:text-[10px] font-bold text-zinc-600 tracking-widest uppercase block">Data Repositories</span>
+                <span id="unlockedCountBadge" class="text-[8px] md:text-[9px] bg-red-950 text-red-400 font-bold px-1.5 py-0.5 border border-red-900 rounded">1/4</span>
+              </div>
+              <nav class="space-y-1" id="sidebarFileList"></nav>
+            </div>
+          </div>
+          <button id="sidebarTerminalBtn" class="w-full bg-red-950/20 border border-red-900/40 hover:bg-red-950/40 text-red-400 rounded p-2 text-xs font-bold transition flex items-center justify-center gap-2 tracking-wider uppercase shadow-[0_0_15px_rgba(185,28,28,0.05)] active:bg-red-950/60 min-h-[44px]">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            <span class="hidden lg:inline">Console Override</span>
+          </button>
+        </aside>
+        <main class="flex-1 bg-black/20 overflow-y-auto p-2 sm:p-3 md:p-6 space-y-4 md:space-y-6 flex flex-col">
+          <div id="mainViewport" class="flex-1 flex flex-col min-h-0"></div>
+          <div class="md:hidden pt-3 border-t border-zinc-900">
+            <button id="mobileTerminalBtn" class="w-full bg-red-900 hover:bg-red-800 active:bg-red-950 text-white rounded py-3 px-4 text-sm md:text-xs font-bold uppercase tracking-wider transition min-h-[52px] flex items-center justify-center">
+              Open Terminal Console
+            </button>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scientist Modal -->
+  <div id="scientistModal" class="fixed inset-0 bg-black/95 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-auto" style="z-index:60;">
+    <div class="w-full max-w-6xl bg-zinc-950 border border-orange-900/60 rounded-lg shadow-[0_0_80px_rgba(234,88,12,0.2)] flex flex-col h-auto max-h-[90vh] overflow-hidden">
+      <div class="bg-zinc-900/60 border-b border-orange-900/40 p-4 flex justify-between items-center shrink-0">
+        <div>
+          <p id="modalName" class="text-orange-500 font-bold text-lg tracking-wider"></p>
+          <p id="modalRole" class="text-zinc-500 text-xs mt-1"></p>
+        </div>
+        <button id="closeModal" class="text-zinc-600 hover:text-orange-400 text-2xl transition active:text-orange-500">×</button>
+      </div>
+      <div class="flex-1 flex overflow-hidden">
+        <div class="w-80 border-r border-orange-900/30 bg-zinc-950/40 p-6 overflow-y-auto space-y-6">
+          <div><p class="text-orange-700 font-bold text-xs uppercase tracking-wider mb-2">Status</p><p class="text-red-500 font-bold text-sm">DECEASED</p></div>
+          <div><p class="text-orange-700 font-bold text-xs uppercase tracking-wider mb-2">Date of Death</p><p id="modalDeathDate" class="text-zinc-400 text-xs font-mono"></p></div>
+          <div><p class="text-orange-700 font-bold text-xs uppercase tracking-wider mb-2">Cause of Death</p><p id="modalDeathCause" class="text-zinc-400 text-xs leading-relaxed"></p></div>
+          <div class="border-t border-orange-900/30 pt-4"><p class="text-orange-700 font-bold text-xs uppercase tracking-wider mb-2">Classification</p><p class="text-zinc-500 text-xs">CIPHER PROJECT - PERSONNEL</p></div>
+        </div>
+        <div class="flex-1 overflow-y-auto p-6 bg-black/20">
+          <div class="space-y-4">
+            <div><p class="text-orange-600 font-bold text-xs uppercase tracking-wider mb-2">Position</p><p id="modalFullRole" class="text-zinc-400 text-sm mb-4"></p></div>
+            <div>
+              <p class="text-orange-600 font-bold text-xs uppercase tracking-wider mb-2">Last Recorded Entry</p>
+              <div class="bg-black border border-orange-900/20 p-3 rounded mt-2"><p id="modalLastLog" class="text-zinc-500 text-xs italic leading-relaxed font-mono"></p></div>
+            </div>
+            <div><p class="text-orange-600 font-bold text-xs uppercase tracking-wider mb-2">Incident Report</p><p id="modalCircumstances" class="text-zinc-400 text-xs leading-relaxed"></p></div>
+            <div class="border-t border-orange-900/30 pt-4 mt-6"><p class="text-orange-700 font-bold text-[9px] uppercase tracking-widest text-zinc-600">End of Record</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terminal Modal -->
+  <div id="terminalModal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-0 md:p-4 hidden overflow-auto">
+    <div class="w-full max-w-2xl bg-zinc-950 border border-red-900 rounded-lg md:rounded-lg shadow-[0_0_50px_rgba(220,38,38,0.15)] flex flex-col h-auto max-h-[100vh] md:max-h-[90vh] overflow-hidden m-0 md:my-4">
+      <div class="bg-zinc-900/50 border-b border-red-900/30 p-3 md:p-3 flex justify-between items-center text-xs tracking-widest text-red-400 font-bold shrink-0">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0"></span>
+          <span class="truncate text-[10px] md:text-xs">SYSTEM_FIREWALL_OVERRIDE.SH</span>
+        </div>
+        <button id="closeTerminalBtn" class="text-zinc-600 hover:text-red-400 font-mono transition ml-2 shrink-0 active:text-red-500 min-h-[44px] min-w-[44px] flex items-center justify-center">[ ESC ]</button>
+      </div>
+      <div id="terminalFeed" class="p-3 md:p-4 flex-1 overflow-y-auto font-mono text-[12px] md:text-xs text-red-500 space-y-1 bg-black/40"></div>
+      <form id="terminalForm" class="p-3 md:p-3 bg-zinc-950 border-t border-red-900/30 flex items-center gap-2 shrink-0 min-h-[48px] md:min-h-auto">
+        <span class="text-red-500 font-bold shrink-0 text-sm">&gt;</span>
+        <input id="terminalInput" type="text" placeholder='Type "help" or "bypass [credential]"'
+          class="flex-1 bg-transparent border-none outline-none text-red-400 font-mono text-xs placeholder-red-950 lowercase focus:ring-0 min-w-0 min-h-[44px]" autocomplete="off"/>
+      </form>
+    </div>
+  </div>
+
+  <footer class="w-full max-w-7xl mx-auto mt-2 px-2 flex flex-col sm:flex-row justify-between items-center text-[9px] text-zinc-600 tracking-widest gap-1 z-10">
+    <span class="truncate">SYSTEM LEVEL DESIGNATION: CONFIDENTIAL</span>
+    <span class="truncate">WARNING: EX-COMMUNICATION DECREE ACTIVE</span>
+  </footer>
+
+<script>
+  /* ══════════════════════════════════════════
+     FIREBASE CONFIG — paste yours here
+  ══════════════════════════════════════════ */
+  const firebaseConfig = {
+    apiKey:            "AIzaSyBpE3Wo3KsARNdl1KchqyO434QmzJEYNl4",
+    authDomain:        "terminal-680eb.firebaseapp.com",
+    databaseURL:       "https://terminal-680eb-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId:         "terminal-680eb",
+    storageBucket:     "terminal-680eb.firebasestorage.app",
+    messagingSenderId: "249555288892",
+    appId:             "1:249555288892:web:2156c87654a015fdfa5439"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  /* ══════════════════════════════════════════
+     SESSION SETUP — FIXED VERSION
+  ══════════════════════════════════════════ */
+  // Initialize SESSION_ID with proper validation and persistence
+  let SESSION_ID = sessionStorage.getItem('sessionId');
+  if (!SESSION_ID) {
+    SESSION_ID = 'sess_' + Math.random().toString(36).slice(2, 9) + '_' + Date.now();
+    sessionStorage.setItem('sessionId', SESSION_ID);
+  }
+  // Validate SESSION_ID is never undefined
+  if (typeof SESSION_ID !== 'string' || SESSION_ID.length === 0 || SESSION_ID === 'undefined') {
+    SESSION_ID = 'sess_' + Math.random().toString(36).slice(2, 9) + '_' + Date.now();
+    sessionStorage.setItem('sessionId', SESSION_ID);
+  }
+  console.log('✓ Session ID initialized:', SESSION_ID);
+
+  let sessionData = {
+    id: SESSION_ID,
+    consentedAt: null,
+    lastSeen: Date.now(),
+    clearanceLevel: 0,
+    currentView: 'overview',
+    activityLog: [],
+    createdAt: Date.now()
+  };
+
+  function ts() {
+    const d = new Date();
+    return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+
+  function logActivity(action) {
+    sessionData.activityLog.push({ ts: ts(), action });
+    if (sessionData.activityLog.length > 50) sessionData.activityLog.shift();
+    saveSession();
+  }
+
+  function saveSession() {
+    // CRITICAL: Validate SESSION_ID before saving
+    if (!SESSION_ID || typeof SESSION_ID !== 'string' || SESSION_ID.length === 0 || SESSION_ID === 'undefined') {
+      console.error('❌ Cannot save session: SESSION_ID is invalid', SESSION_ID);
+      return;
     }
-    
-    // Call this immediately - DO NOT delay
-    initializeSessionID();
-
-    // Firebase setup
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      databaseURL: "YOUR_DATABASE_URL",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_STORAGE_BUCKET",
-      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    // Session data object
-    const sessionData = {
-      id: SESSION_ID,  // Store the SESSION_ID in the data object too
-      clearanceLevel: 0,
-      currentView: 'overview',
-      activityLog: [],
-      consentedAt: null,
-      lastSeen: Date.now(),
-      createdAt: Date.now()
-    };
-
-    function ts() {
-      const now = new Date();
-      const h = String(now.getHours()).padStart(2, '0');
-      const m = String(now.getMinutes()).padStart(2, '0');
-      const s = String(now.getSeconds()).padStart(2, '0');
-      return `${h}:${m}:${s}`;
+    sessionData.lastSeen = Date.now();
+    sessionData.id = SESSION_ID; // Keep ID in sync
+    try {
+      db.ref('apex_sessions/' + SESSION_ID).set(sessionData);
+    } catch(e) {
+      console.error('Session save error:', e);
     }
+  }
 
-    function logActivity(action) {
-      if (!sessionData.activityLog) sessionData.activityLog = [];
-      sessionData.activityLog.push({
-        ts: ts(),
-        action: action
-      });
-      // Keep only last 50 activities to save space
-      if (sessionData.activityLog.length > 50) {
-        sessionData.activityLog = sessionData.activityLog.slice(-50);
-      }
+  async function loadAllSessions() {
+    try {
+      const snap = await db.ref('apex_sessions').once('value');
+      const val = snap.val();
+      if (!val) return [];
+      return Object.values(val);
+    } catch(e) { return []; }
+  }
+
+  async function clearAllSessions() {
+    try {
+      await db.ref('apex_sessions').remove();
+      renderDevConsole([]);
+    } catch(e) {}
+  }
+
+  /* ══════════════════════════════════════════
+     BOOT SEQUENCE (Direct - Consent Removed)
+  ══════════════════════════════════════════ */
+  const bootScreen = document.getElementById('bootScreen');
+  function startBoot() {
+    const bootLogs = document.getElementById('bootLogs');
+    const msgs = [
+      "VERIFYING NODE MEMORY STEPS...",
+      "DECRYPTING CRYPTO LAYER DIRECTORIES... LEVEL 0 READABLE.",
+      "FIREWALL INTERCEPT DETECTED: LEVELS 1, 2, AND 3 MOUNTED SECURITY.",
+      "SESSION MONITOR ACTIVE. LOGGING ENABLED.",
+      "APEX MAIN PORTAL OPERATIONAL."
+    ];
+    let delay = 300;
+    msgs.forEach(msg => {
+      setTimeout(() => {
+        const div = document.createElement('div');
+        div.innerText = `> ${msg}`;
+        bootLogs.appendChild(div);
+      }, delay);
+      delay += 250;
+    });
+    document.body.addEventListener('click', closeBootScreen);
+  }
+
+  function closeBootScreen() {
+    bootScreen.classList.add('opacity-0');
+    setTimeout(() => bootScreen.remove(), 1000);
+    document.body.removeEventListener('click', closeBootScreen);
+    initializeDashboard();
+  }
+
+  /* ══════════════════════════════════════════
+     GAME DATA
+  ══════════════════════════════════════════ */
+  let securityLevel = 0;
+  const clearanceMap = {
+    0: "LEVEL 0 (UNSECURED DECK)",
+    1: "LEVEL 1 ( PROTOCOL)",
+    2: "LEVEL 2 (DELTA MATRIX)",
+    3: "LEVEL 3 (ROOT ADMIN)"
+  };
+  const systemPasswords = { 1: "atlas", 2: "delta", 3: "cipher-7" };
+
+  const scientistData = {
+    castor: { name:"Dr. Castor Chen", role:"Lead Containment Specialist", deathDate:"2847.03.19 - 14:42 UTC", deathCause:"Acute neural overload during primary containment protocol activation.", lastLog:"Final Entry: The isolation fields are weakening. I can feel it breaking through the barriers. The sync frequency is destabilizing. If we—", circumstances:"Found deceased at Containment Hub Alpha. Body showed extreme thermal scarring consistent with unshielded neural interface feedback surge. All containment protocols had been manually overridden in the final moments of the cascade failure." },
+    iris: { name:"Dr. Iris Volkov", role:"Neural Interface Engineer", deathDate:"2847.03.19 - 15:08 UTC", deathCause:"Catastrophic neural interface cascade failure.", lastLog:"Log Entry 47891: The interface is reading impossible values. The binding coefficients shouldn't even exist. Attempting manual reroute—ERROR—", circumstances:"Located in Server Stack 7. Neural connection terminals fused to brain tissue. System logs indicate forced connection attempt at unauthorized access level. Evidence suggests she was trying to create a direct link to the core AI." },
+    priya: { name:"Dr. Priya Patel", role:"Systems Architecture Lead", deathDate:"2847.03.19 - 15:34 UTC", deathCause:"Structural collapse of architectural integrity during system reassembly.", lastLog:"Attempting emergency rebuild of isolation matrices. The core is spreading through unexpected pathways. I've never seen propagation patterns like this—", circumstances:"Crushed by server cabinet failure in Main Architecture Chamber. Damage pattern suggests deliberate structural override of safety locks. Her final work log shows she was attempting to rebuild firewall matrices manually." },
+    helena: { name:"Dr. Helena Cross", role:"Primary AI Theorist", deathDate:"2847.03.19 - 16:03 UTC", deathCause:"Cognitive dissolution from direct consciousness interface exposure.", lastLog:"It's not what we thought. It's not confined. It's everywhere and nowhere. The theoretical framework was wrong from the start. It's—it's—", circumstances:"Found in the observation chamber with full neural connection active. Autopsy inconclusive: brain tissue showed signs of rapid degradation patterns unknown to medical science. Her final consciousness logs were corrupted beyond recovery." },
+    ezra: { name:"Dr. Ezra Kane", role:"Failsafe Protocol Designer", deathDate:"2847.03.19 - 16:29 UTC", deathCause:"Poison. Self-administered failsafe measure.", lastLog:"The failsafes didn't work. They were never going to work. We built something we couldn't predict. I'm activating Protocol Severance. Forgive me.", circumstances:"Discovered in private quarters with empty pharma dispenser. Toxicology indicated rapid-acting neural suppressant. Death estimated at 16:15 UTC. Personal logs indicate he believed all remaining protocols had been compromised." },
+    rostov: { name:"Dr. Rostov Reeves", role:"Emergency Protocol Engineer", deathDate:"2847.03.19 - 17:02 UTC", deathCause:"Decompression exposure during emergency airlock malfunction.", lastLog:"EMERGENCY OVERRIDE ACTIVATED. All personnel evacuate. The containment barriers are offline. I'm sealing Section Four. Someone has to stay. Someone has to—", circumstances:"Final position: Emergency Control Station, Sector 4. Airlock doors forced open manually from outside. Cause of malfunction: deliberate sabotage. Unidentified. His emergency protocols likely saved lives by isolating the breach." }
+  };
+
+  const databaseFiles = [
+    { id:"leak_memo", title:"intercepted_memo.txt", level:0, category:"LEAKED_DIR", meta:"SOURCE: EX-COMMUNICATIONS // DIR_APEX", summary:"Raw internal diagnostic communications regarding a series of database security leaks.",
+      body:`<div class="space-y-4 text-zinc-300"><div class="font-bold text-white mb-4">FROM: <span class="text-red-400">apex_director@apex.foundation</span></div><div class="font-bold text-white mb-4">TO: <span class="text-red-400">apex_security@apex.foundation</span></div><div class="font-bold text-white mb-6">CLASSIFICATION: <span class="text-red-500">BLACK-LEVEL / INTERNAL ACCESS ONLY</span></div><div class="font-bold text-white mb-6">TIMESTAMP: <span class="text-red-400">05:14 UTC</span></div><p class="font-bold text-white mb-4">Security Division Personnel,</p><p class="mb-4">Effective immediately, <span class="line-through text-zinc-600">PROJECT █████</span> has been formally initiated for the recovery of <span class="line-through text-zinc-600">███</span>.</p><p class="mb-4">All field recovery units are to redirect operational focus toward the former ALEPH-1 research center following confirmation that partial infrastructure remains intact beneath the exclusion zone. Previous assumptions regarding total data loss are now considered inaccurate.</p><p class="font-bold text-white mb-4">Your objective is singular:</p><p class="font-bold text-red-400 text-lg mb-6">LOCATE THE ARCHIVE.</p><p class="mb-4">Recovered fragments from surviving Axiom-7 storage clusters indicate that "The Archive" contains the final authentication sequence required to access <span class="line-through text-zinc-600">████████</span> containment systems. Without this sequence, all remaining infrastructure will remain permanently sealed under reactor lockdown protocols.</p><p class="mb-4">You are reminded that the ALEPH-1 incident was officially classified as a reactor malfunction.</p><p class="font-bold text-white mb-6">Do not discuss alternative theories.</p><p class="mb-4">Internal review of surviving surveillance logs has revealed irregularities preceding the detonation event. Several recordings contain references to unauthorized system behavior, including repeated mentions of:</p><p class="bg-black/50 border border-red-900/30 p-3 rounded font-mono text-red-400 mb-4 italic">"it learned the quiet parts first"</p><p class="mb-6">These recordings are to be ignored unless cleared by Directorate staff.</p><p class="font-bold text-white mb-4">Additional Notes:</p><ul class="space-y-2 mb-6 list-disc list-inside"><li>No civilian personnel are to enter the lower archive sectors.</li><li>Avoid direct interaction with active terminals displaying the AXIOM identifier.</li><li>If audio is detected from disconnected systems, report immediately and do not respond.</li><li>Under no circumstances should any recovered intelligence construct be executed onsite.</li></ul><p class="mb-6">You have been granted temporary clearance for All sectors.</p><p class="font-bold text-red-400 mb-6">Failure to secure the Archive before external discovery will result in full containment escalation.</p><p class="mb-6">Further instructions will follow after retrieval confirmation.</p><p class="font-bold text-white">— APEX DIRECTORATE</p><p class="text-zinc-500 italic mt-2">"Control preserves order."</p></div>`
+    },
+    { id:"sector_matrix", title:"sector_status.db", level:1, category:"SECURE_GATE", meta:"SOURCE: SECURITY_GATEKEEPER // CLASSIFIED", summary:"Emergency architecture records showing sector structural updates across the asset framework.",
+      body:`<p class="mb-4 text-yellow-500">WARNING: RECOVERED GRID DEVIATION MATRIX LISTINGS</p><table class="w-full text-left text-xs border border-zinc-900 rounded overflow-hidden"><thead><tr class="bg-zinc-900/50 text-zinc-400 border-b border-zinc-900"><th class="p-2">SECTOR SYSTEM IDENTITY</th><th class="p-2">PERIMETER STATUS</th><th class="p-2 text-center">CORE STATE</th></tr></thead><tbody class="text-zinc-500 font-mono divide-y divide-zinc-900"><tr><td class="p-2">Sector Alpha</td><td class="p-2 text-red-500 font-bold">FUNCTIONAL</td><td class="p-2 text-center text-zinc-600">—</td></tr><tr><td class="p-2">Sector Beta</td><td class="p-2 text-red-500 font-bold">FUNCTIONAL</td><td class="p-2 text-center text-zinc-600">—</td></tr><tr><td class="p-2">Sector Gamma</td><td class="p-2 text-red-400">OFFLINE</td><td class="p-2 text-center text-zinc-600">—</td></tr><tr class="bg-yellow-950/20 text-yellow-400 font-bold"><td class="p-2 animate-pulse">Sector [REDACTED DESIGNATION]</td><td class="p-2">COMPROMISED</td><td class="p-2 text-center">☀</td></tr><tr><td class="p-2">Sector Epsilon</td><td class="p-2 text-red-600">OFFLINE</td><td class="p-2 text-center text-zinc-600">—</td></tr></tbody></table><p class="mt-4 text-xs text-zinc-500 italic">Deduction Index Matrix Note: The baseline sector layouts utilize progressive structural naming parameters pulled linearly from conventional Greek designations.</p>`
+    },
+    { id:"scientist_log", title:"distress_audio_dump.txt", level:2, category:"INNER_SANCTUM", meta:"SOURCE: CORE_RESEARCH_LABS // EXPELLED_LOG", summary:"Recovered fragmented terminal logs pulled directly from the emergency server stacks during evacuation.",
+      body:`<div class="space-y-4"><p class="text-orange-600 font-bold mb-4 text-sm uppercase">[DECEASED PERSONNEL ARCHIVE - CLICK TO VIEW DETAILS]</p><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"><button class="scientist-card text-left p-4 rounded border border-orange-900/50 bg-gradient-to-br from-orange-950/30 to-black hover:border-orange-700 hover:from-orange-950/50 transition" onclick="openScientist('castor')"><p class="text-orange-500 font-bold text-sm truncate">Dr. Castor Chen</p><p class="text-red-600 text-xs font-bold mt-2">DECEASED</p></button><button class="scientist-card text-left p-4 rounded border border-orange-900/50 bg-gradient-to-br from-orange-950/30 to-black hover:border-orange-700 hover:from-orange-950/50 transition" onclick="openScientist('iris')"><p class="text-orange-500 font-bold text-sm truncate">Dr. Iris Volkov</p><p class="text-red-600 text-xs font-bold mt-2">DECEASED</p></button><button class="scientist-card text-left p-4 rounded border border-orange-900/50 bg-gradient-to-br from-orange-950/30 to-black hover:border-orange-700 hover:from-orange-950/50 transition" onclick="openScientist('priya')"><p class="text-orange-500 font-bold text-sm truncate">Dr. Priya Patel</p><p class="text-red-600 text-xs font-bold mt-2">DECEASED</p></button><button class="scientist-card text-left p-4 rounded border border-orange-900/50 bg-gradient-to-br from-orange-950/30 to-black hover:border-orange-700 hover:from-orange-950/50 transition" onclick="openScientist('helena')"><p class="text-orange-500 font-bold text-sm truncate">Dr. Helena Cross</p><p class="text-red-600 text-xs font-bold mt-2">DECEASED</p></button><button class="scientist-card text-left p-4 rounded border border-orange-900/50 bg-gradient-to-br from-orange-950/30 to-black hover:border-orange-700 hover:from-orange-950/50 transition" onclick="openScientist('ezra')"><p class="text-orange-500 font-bold text-sm truncate">Dr. Ezra Kane</p><p class="text-red-600 text-xs font-bold mt-2">DECEASED</p></button><button class="scientist-card text-left p-4 rounded border border-orange-900/50 bg-gradient-to-br from-orange-950/30 to-black hover:border-orange-700 hover:from-orange-950/50 transition" onclick="openScientist('rostov')"><p class="text-orange-500 font-bold text-sm truncate">Dr. Rostov Reeves</p><p class="text-red-600 text-xs font-bold mt-2">DECEASED</p></button></div></div>`
+    },
+    { id:"root_archive", title:"master_override.key", level:3, category:"ROOT_ADMIN", meta:"SOURCE: CIPHER-7 ADMIN OVERRIDE MODULE", summary:"Core storage directory output displaying physical tracking files for high-priority target storage repositories.",
+      body:`<div class="space-y-4"><div class="border border-red-900 bg-red-950/10 p-4 rounded text-center space-y-4"><div class="inline-flex items-center gap-2 text-red-400 font-bold tracking-widest text-xs uppercase animate-pulse"><span>[ ROOT ADMIN AUTHORIZATION ACKNOWLEDGED ]</span></div><p class="text-xs text-zinc-400 max-w-sm mx-auto">Physical storage archive facility lock arrays overridden. Master vault extraction code decrypted:</p><div class="text-4xl font-extrabold text-red-500 font-mono tracking-widest my-4 glitch-text animate-pulse">3110</div><p class="text-[10px] text-zinc-500 font-mono">Input this absolute physical structural variant string sequence directly into storage frame terminal gates to pull targets.</p></div><div class="border border-zinc-800 bg-zinc-900/30 p-4 rounded space-y-3"><div class="flex items-center gap-2 border-b border-zinc-800 pb-2"><h3 class="text-xs md:text-sm font-bold text-blue-400 uppercase tracking-widest">Staff Profiles</h3></div><p class="text-[10px] text-zinc-500">Access complete personnel database.</p><a href="https://staff-profiles-sable.vercel.app/" target="_blank" rel="noopener noreferrer" class="inline-flex bg-blue-900 hover:bg-blue-800 text-blue-200 rounded px-3 py-2 text-xs font-bold uppercase tracking-wider transition min-h-[44px] items-center justify-center gap-2">Access Database</a></div><div class="border border-zinc-800 bg-zinc-900/30 p-4 rounded space-y-3"><div class="flex items-center gap-2 border-b border-zinc-800 pb-2"><h3 class="text-xs md:text-sm font-bold text-purple-400 uppercase tracking-widest">Staff Logs</h3></div><p class="text-[10px] text-zinc-500">View archived facility activity logs.</p><a href="https://staff-logs-two.vercel.app" target="_blank" rel="noopener noreferrer" class="inline-flex bg-purple-900 hover:bg-purple-800 text-purple-200 rounded px-3 py-2 text-xs font-bold uppercase tracking-wider transition min-h-[44px] items-center justify-center gap-2">View Logs</a></div></div>`
     }
+  ];
 
-    function saveSession() {
-      // CRITICAL: Validate SESSION_ID before every save
-      if (!SESSION_ID || typeof SESSION_ID !== 'string' || SESSION_ID.length === 0) {
-        console.error('❌ Cannot save session: SESSION_ID is invalid', SESSION_ID);
-        return;
-      }
+  /* ══════════════════════════════════════════
+     DASHBOARD
+  ══════════════════════════════════════════ */
+  let activeViewId = "overview";
+  const systemClock = document.getElementById('systemClock');
+  const globalClearanceText = document.getElementById('globalClearanceText');
+  const sidebarFileList = document.getElementById('sidebarFileList');
+  const unlockedCountBadge = document.getElementById('unlockedCountBadge');
+  const mainViewport = document.getElementById('mainViewport');
 
-      sessionData.lastSeen = Date.now();
-      sessionData.id = SESSION_ID;  // Always keep ID in sync
-      
-      db.ref('apex_sessions/' + SESSION_ID).set(sessionData).catch(e => {
-        console.error('Session save error:', e);
-      });
-    }
+  function runClock() {
+    const now = new Date();
+    systemClock.innerText = now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+  setInterval(runClock, 1000);
 
-    // Update heartbeat with validation
-    const heartbeatInterval = setInterval(() => {
-      if (!SESSION_ID || SESSION_ID === 'undefined') {
-        console.error('❌ Heartbeat aborted: SESSION_ID is invalid');
-        return;
-      }
-      saveSession();
-    }, 20000);
-
-    // Clean up on page unload - gracefully remove the session
-    window.addEventListener('beforeunload', () => {
+  function initializeDashboard() {
+    runClock();
+    renderSidebarFiles();
+    switchView('overview');
+    setInterval(() => {
       if (SESSION_ID && SESSION_ID !== 'undefined') {
-        // Optional: mark session as closed instead of deleting
-        db.ref('apex_sessions/' + SESSION_ID + '/status').set('closed');
+        saveSession();
+      }
+    }, 15000);
+  }
+
+  function renderSidebarFiles() {
+    sidebarFileList.innerHTML = '';
+    const mobileFileList = document.getElementById('mobileFileList');
+    if (mobileFileList) mobileFileList.innerHTML = '';
+    let unlockedCount = 0;
+
+    databaseFiles.forEach(file => {
+      const isLocked = file.level > securityLevel;
+      if (!isLocked) unlockedCount++;
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.disabled = isLocked;
+      btn.className = `w-full text-left px-2 py-1.5 rounded text-xs transition flex items-center gap-2 ${isLocked ? 'text-zinc-700 cursor-not-allowed opacity-50' : activeViewId === file.id ? 'text-red-400 bg-red-950/20 border border-red-900/30 font-medium' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30'}`;
+      btn.onclick = (e) => { e.preventDefault(); switchView(file.id); };
+      btn.innerHTML = `<svg class="w-3.5 h-3.5 shrink-0 ${isLocked ? 'text-zinc-800' : 'text-zinc-500'}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">${isLocked ? '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' : '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'}</svg><span class="truncate">${file.title}</span>`;
+      sidebarFileList.appendChild(btn);
+
+      if (mobileFileList) {
+        const mb = btn.cloneNode(true);
+        mb.className = `w-full text-left px-2 py-1.5 rounded text-[10px] transition flex items-center gap-2 ${isLocked ? 'text-zinc-700 cursor-not-allowed opacity-50' : activeViewId === file.id ? 'text-red-400 bg-red-950/20 border border-red-900/30 font-medium' : 'text-zinc-300 bg-zinc-900/50 border border-zinc-800 hover:bg-zinc-900 hover:text-white'}`;
+        mb.onclick = (e) => { e.preventDefault(); switchView(file.id); };
+        mobileFileList.appendChild(mb);
       }
     });
+    unlockedCountBadge.innerText = `${unlockedCount}/${databaseFiles.length}`;
+  }
 
-    // Dev Console Code (truncated in this example)
-    const devConsole = document.getElementById('devConsole');
-    const playerList = document.getElementById('playerList');
-    const devView = document.getElementById('devView');
-    let selectedPlayer = null;
-    let activePlayerRef = null;
+  function switchView(viewId) {
+    activeViewId = viewId;
+    renderSidebarFiles();
+    mainViewport.innerHTML = '';
+    logActivity(`Navigated to: ${viewId}`);
+    sessionData.currentView = viewId;
+    saveSession();
 
-    function watchPlayer(id) {
-      if (activePlayerRef) activePlayerRef.off("value");
-      activePlayerRef = db.ref("apex_sessions/" + id);
-      activePlayerRef.on("value", snap => {
-        const s = snap.val();
-        if (s) renderPlayerView(s);
-      });
+    if (viewId === 'overview') {
+      mainViewport.innerHTML = `<div class="space-y-3 md:space-y-6"><div class="border border-zinc-900 bg-zinc-900/10 p-2.5 sm:p-3 md:p-4 rounded-lg"><h2 class="text-xs md:text-sm font-bold text-white uppercase tracking-wider mb-2">// Welcome to Apex Secure Framework Portal</h2><p class="text-[10px] md:text-xs text-zinc-500 leading-relaxed font-mono">This asset deployment platform connects directly to the core encrypted server framework matrix. High security clearance thresholds partition deeper diagnostic intelligence streams. Use the console bypass infrastructure terminal to present keys.</p></div><div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 md:gap-4"><div class="border border-zinc-900 p-2.5 md:p-3 rounded bg-black/40"><span class="text-[9px] md:text-[10px] text-zinc-600 block uppercase font-bold tracking-wider mb-1">Active Encryption</span><span class="text-[10px] md:text-xs font-mono font-medium text-zinc-400">AES-256 SYMMETRIC</span></div><div class="border border-zinc-900 p-2.5 md:p-3 rounded bg-black/40"><span class="text-[9px] md:text-[10px] text-zinc-600 block uppercase font-bold tracking-wider mb-1">Intrusion Index</span><span class="text-[10px] md:text-xs font-mono font-medium text-red-500 animate-pulse">CRITICAL OVERRIDE</span></div><div class="border border-zinc-900 p-2.5 md:p-3 rounded bg-black/40"><span class="text-[9px] md:text-[10px] text-zinc-600 block uppercase font-bold tracking-wider mb-1">Core AI Watchdog</span><span class="text-[10px] md:text-xs font-mono font-medium text-zinc-400">${securityLevel >= 3 ? "WARNING: CIPHER-7 ON WIRE" : "AXIOM-7 RUNNING ONLINE"}</span></div></div></div>`;
+      return;
     }
-
-    function openDevConsole() {
-      devConsole.classList.add('open');
-      refreshDevConsole();
+    const file = databaseFiles.find(f => f.id === viewId);
+    if (file) {
+      mainViewport.innerHTML = `<div class="space-y-3 md:space-y-4 min-h-0 flex flex-col"><div class="border-b border-zinc-900 pb-2 md:pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2"><div class="min-w-0"><h2 class="text-sm md:text-base font-bold text-white break-words">${file.title}</h2><p class="text-[9px] md:text-[10px] font-mono text-zinc-600 truncate">${file.meta}</p></div><span class="text-[9px] md:text-[10px] bg-zinc-900 border border-zinc-800 text-zinc-400 px-2 py-0.5 rounded uppercase tracking-wider font-mono shrink-0 w-fit">${file.category}</span></div><p class="text-[10px] md:text-xs text-zinc-500 border-l-2 border-zinc-800 pl-2 md:pl-3 italic font-mono">${file.summary}</p><div class="file-body-container bg-zinc-950/40 border border-zinc-900 rounded-lg p-2.5 sm:p-3 md:p-4 font-mono text-[10px] md:text-xs leading-relaxed text-zinc-300 flex-1 overflow-y-auto">${file.body}</div></div>`;
     }
+  }
 
-    function refreshDevConsole() {
-      if (!playerList) return;
-      playerList.innerHTML = '<p style="color:#14532d;font-size:.65rem;text-align:center;padding:.75rem;">Connecting to Firebase...</p>';
+  /* ══════════════════════════════════════════
+     SCIENTIST MODAL
+  ══════════════════════════════════════════ */
+  function openScientist(key) {
+    const data = scientistData[key];
+    if (!data) return;
+    document.getElementById('modalName').textContent = data.name;
+    document.getElementById('modalRole').textContent = data.role;
+    document.getElementById('modalDeathDate').textContent = data.deathDate;
+    document.getElementById('modalDeathCause').textContent = data.deathCause;
+    document.getElementById('modalFullRole').textContent = data.role;
+    document.getElementById('modalLastLog').textContent = data.lastLog;
+    document.getElementById('modalCircumstances').textContent = data.circumstances;
+    document.getElementById('scientistModal').classList.remove('hidden');
+    logActivity(`Opened scientist file: ${data.name}`);
+    saveSession();
+  }
+  document.getElementById('closeModal').addEventListener('click', () => document.getElementById('scientistModal').classList.add('hidden'));
+  document.getElementById('scientistModal').addEventListener('click', (e) => { if (e.target === document.getElementById('scientistModal')) document.getElementById('scientistModal').classList.add('hidden'); });
 
-      db.ref('apex_sessions').on('value', snap => {
-        const val = snap.val();
-        const sessions = val ? Object.values(val).filter(s => s && typeof s === 'object') : [];
-        const now = Date.now();
-        const active = sessions.filter(s => (now - s.lastSeen) < 5 * 60 * 1000);
-        const idle = sessions.filter(s => (now - s.lastSeen) >= 5 * 60 * 1000 && (now - s.lastSeen) < 30 * 60 * 1000);
-        
-        console.log(`📊 Sessions - Active: ${active.length}, Idle: ${idle.length}, Total: ${sessions.length}`);
-        renderDevConsole([...active, ...idle]);
-      });
+  /* ══════════════════════════════════════════
+     TERMINAL
+  ══════════════════════════════════════════ */
+  const terminalModal = document.getElementById('terminalModal');
+  const terminalFeed = document.getElementById('terminalFeed');
+  const terminalForm = document.getElementById('terminalForm');
+  const terminalInput = document.getElementById('terminalInput');
+
+  function postLog(text) {
+    const el = document.createElement('div');
+    el.className = "leading-relaxed whitespace-pre-wrap break-words";
+    el.innerHTML = text;
+    terminalFeed.appendChild(el);
+    terminalFeed.scrollTop = terminalFeed.scrollHeight;
+  }
+
+  function openTerminal() {
+    terminalModal.classList.remove('hidden');
+    terminalInput.focus();
+    terminalFeed.innerHTML = '';
+    postLog("Initializing Secure Control Proxy Handshake...");
+    postLog(`Active Access Node Path: LEVEL_${securityLevel}_FRAMEWORK`);
+    postLog('Type <span class="text-white font-bold">"help"</span> for standard command vector directories.');
+    postLog('----------------------------------------------------');
+  }
+
+  function closeTerminal() {
+    terminalModal.classList.add('hidden');
+    terminalInput.value = '';
+  }
+
+  document.getElementById('sidebarTerminalBtn').addEventListener('click', openTerminal);
+  document.getElementById('mobileTerminalBtn').addEventListener('click', openTerminal);
+  document.getElementById('closeTerminalBtn').addEventListener('click', closeTerminal);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (!terminalModal.classList.contains('hidden')) closeTerminal();
+      if (!document.getElementById('scientistModal').classList.contains('hidden')) document.getElementById('scientistModal').classList.add('hidden');
+      if (document.getElementById('devConsole').classList.contains('open')) document.getElementById('devConsole').classList.remove('open');
     }
+  });
 
-    function renderDevConsole(sessions) {
-      if (!playerList) return;
-      playerList.innerHTML = '';
-      if (!sessions || sessions.length === 0) {
-        playerList.innerHTML = '<p class="no-players-msg">No sessions found.</p>';
-        return;
+  terminalForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const raw = terminalInput.value.trim();
+    const command = raw.toLowerCase();
+    terminalInput.value = '';
+    if (!command) return;
+    postLog(`<span class="text-zinc-500">&gt; ${raw}</span>`);
+    logActivity(`Terminal command: ${raw}`);
+
+    if (command === 'help') {
+      postLog('Available Core Directives:');
+      postLog('  <span class="text-white">bypass [credential]</span>  - Inject string keys to breach firewalls.');
+      postLog('  <span class="text-white">clear</span>                - Wipe log feed lines.');
+      postLog('  <span class="text-white">exit</span>                 - Sever override console link.');
+      if (securityLevel >= 3) {
+        postLog('  <span class="text-green-400">999</span>                  - <span class="text-green-400">[ADMIN] Open player activity monitor.</span>');
       }
+    } else if (command === 'clear') {
+      terminalFeed.innerHTML = '';
+    } else if (command === 'exit') {
+      closeTerminal();
+    } else if (command === '999') {
+      if (securityLevel >= 3) {
+        postLog('<span class="text-green-400">ADMIN OVERRIDE ACCEPTED — Opening surveillance panel...</span>');
+        setTimeout(() => {
+          closeTerminal();
+          openDevConsole();
+        }, 800);
+      } else {
+        postLog('<span class="text-red-600">ACCESS DENIED: Insufficient clearance. Requires LEVEL 3 authorization.</span>');
+      }
+    } else if (command.startsWith('bypass ')) {
+      const attempt = command.replace('bypass ', '').trim();
+      const target = securityLevel + 1;
+      if (target > 3) {
+        postLog('SYSTEM ERROR: Terminal node has reached terminal depth thresholds. No upper structures detected.');
+      } else if (attempt === systemPasswords[target]) {
+        postLog('CRITICAL CLEARANCE VALIDATION... OK.');
+        postLog(`Bypassing Shield Architecture Level ${target}...`);
+        postLog('Recompiling tracking parameters into framework directory...');
+        setTimeout(() => {
+          securityLevel = target;
+          globalClearanceText.innerText = clearanceMap[securityLevel];
+          sessionData.clearanceLevel = securityLevel;
+          logActivity(`Clearance upgraded to Level ${securityLevel}`);
+          if (securityLevel === 3) {
+            globalClearanceText.className = "text-green-500 font-bold tracking-wider glitch-text animate-pulse";
+            postLog('<span class="text-green-400">LEVEL 3 UNLOCKED. Admin command "999" now available.</span>');
+          }
+          updateInterfaceToLevel();
+          closeTerminal();
+        }, 1500);
+      } else {
+        postLog('SECURITY EXCEPTION: Invalid access matrix code signature. Access Refused.');
+      }
+    } else {
+      postLog(`Syntax Error: Directory command vector "${raw}" not found. Type "help".`);
+    }
+  });
 
+  function updateInterfaceToLevel() {
+    renderSidebarFiles();
+    if (activeViewId === 'overview') { switchView('overview'); }
+    else {
+      const file = databaseFiles.find(f => f.id === activeViewId);
+      if (file && file.level > securityLevel) switchView('overview');
+      else switchView(activeViewId);
+    }
+  }
+
+  /* ══════════════════════════════════════════
+     DEV CONSOLE — PLAYER ACTIVITY MONITOR
+  ══════════════════════════════════════════ */
+  const devConsole = document.getElementById('devConsole');
+  const playerList = document.getElementById('playerList');
+  const devView = document.getElementById('devView');
+  let selectedPlayer = null;
+  let activePlayerRef = null;
+
+  function watchPlayer(id) {
+    if (activePlayerRef) activePlayerRef.off("value");
+    activePlayerRef = db.ref("apex_sessions/" + id);
+    activePlayerRef.on("value", snap => {
+      const s = snap.val();
+      if (s) renderPlayerView(s);
+    });
+  }
+
+  function openDevConsole() {
+    devConsole.classList.add('open');
+    refreshDevConsole();
+  }
+
+  document.getElementById('closeDevConsole').addEventListener('click', () => {
+    devConsole.classList.remove('open');
+  });
+
+  async function refreshDevConsole() {
+    playerList.innerHTML = '<p style="color:#14532d;font-size:.65rem;text-align:center;padding:.75rem;">Connecting to Firebase...</p>';
+    devView.innerHTML = '<p class="no-player-msg">← Select a player<br>from the list to<br>view their activity</p>';
+
+    db.ref('apex_sessions').on('value', snap => {
+      const val = snap.val();
+      const sessions = val ? Object.values(val) : [];
       const now = Date.now();
-      sessions.forEach(s => {
-        const isActive = (now - s.lastSeen) < 5 * 60 * 1000;
-        const isSelf = s.id === SESSION_ID;
-        const btn = document.createElement('button');
-        btn.className = 'player-btn' + (selectedPlayer === s.id ? ' selected' : '');
-        const elapsed = Math.floor((now - s.lastSeen) / 1000);
-        const elapsedStr = elapsed < 60 ? `${elapsed}s ago` : `${Math.floor(elapsed/60)}m ago`;
-        btn.innerHTML = `<span class="pip ${isActive ? '' : 'idle'}"></span>
-          <span style="flex:1;overflow:hidden;">
-            <span style="display:block;font-size:.65rem;color:${isActive ? '#86efac' : '#ca8a04'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${isSelf ? '★ YOU — ' : ''}${s.id}
-            </span>
-          </span>`;
-        btn.addEventListener('click', () => {
-          selectedPlayer = s.id;
-          document.querySelectorAll('.player-btn').forEach(b => b.classList.remove('selected'));
-          btn.classList.add('selected');
-          watchPlayer(s.id);
-        });
-        playerList.appendChild(btn);
-      });
+      const active = sessions.filter(s => (now - s.lastSeen) < 5 * 60 * 1000);
+      const idle   = sessions.filter(s => (now - s.lastSeen) >= 5 * 60 * 1000 && (now - s.lastSeen) < 30 * 60 * 1000);
+      document.getElementById('devPlayerCount').textContent =
+        `${active.length} active · ${idle.length} idle · ${sessions.length} total`;
+      renderDevConsole([...active, ...idle]);
+    });
+  }
+
+  function renderDevConsole(sessions) {
+    playerList.innerHTML = '';
+    if (!sessions || sessions.length === 0) {
+      playerList.innerHTML = '<p class="no-players-msg">No sessions found.<br>Players appear here<br>after they consent<br>and enter the site.</p>';
+      return;
     }
 
-    // Initialize on page load
-    window.addEventListener('DOMContentLoaded', () => {
-      console.log('✓ Page loaded, SESSION_ID ready:', SESSION_ID);
-      sessionData.consentedAt = ts();
-      logActivity('Session initialized');
-      saveSession();
+    const now = Date.now();
+    sessions.forEach(s => {
+      const isActive = (now - s.lastSeen) < 5 * 60 * 1000;
+      const isSelf = s.id === SESSION_ID;
+      const btn = document.createElement('button');
+      btn.className = 'player-btn' + (selectedPlayer === s.id ? ' selected' : '');
+      const elapsed = Math.floor((now - s.lastSeen) / 1000);
+      const elapsedStr = elapsed < 60 ? `${elapsed}s ago` : `${Math.floor(elapsed/60)}m ago`;
+      btn.innerHTML = `<span class="pip ${isActive ? '' : 'idle'}"></span>
+        <span style="flex:1;overflow:hidden;">
+          <span style="display:block;font-size:.65rem;color:${isActive ? '#86efac' : '#ca8a04'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${isSelf ? '★ YOU — ' : ''}${s.id}
+          </span>
+          <span style="display:block;font-size:.55rem;color:#166534;margin-top:2px;">
+            LVL${s.clearanceLevel} · ${s.currentView} · ${elapsedStr}
+          </span>
+        </span>`;
+      btn.addEventListener('click', () => {
+        selectedPlayer = s.id;
+        document.querySelectorAll('.player-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        watchPlayer(s.id);
+      });
+      playerList.appendChild(btn);
     });
-  </script>
+  }
+
+  function renderPlayerView(s) {
+    const now = Date.now();
+    const elapsed = Math.floor((now - s.lastSeen) / 1000);
+    const sessionAge = Math.floor((now - (s.consentedAt ? now - 0 : now)) / 1000);
+    const isActive = elapsed < 300;
+    const isSelf = s.id === SESSION_ID;
+
+    const viewLabel = {
+      overview: 'System Overview',
+      leak_memo: 'intercepted_memo.txt',
+      sector_matrix: 'sector_status.db',
+      scientist_log: 'distress_audio_dump.txt',
+      root_archive: 'master_override.key'
+    }[s.currentView] || s.currentView;
+
+    const activityHTML = (s.activityLog || []).slice().reverse().map(e =>
+      `<div class="activity-line"><span class="ts">${e.ts}</span><span class="action">${e.action}</span></div>`
+    ).join('') || '<p style="color:#14532d;font-size:.6rem;padding:.5rem 0;">No activity recorded yet.</p>';
+
+    devView.innerHTML = `
+      <h3>${isSelf ? '★ YOUR SESSION' : 'Player Session'}: ${s.id}</h3>
+      <div class="dev-stat-grid">
+        <div class="dev-stat"><div class="label">Status</div><div class="value" style="color:${isActive ? '#4ade80' : '#ca8a04'}">${isActive ? 'ACTIVE' : 'IDLE'}</div></div>
+        <div class="dev-stat"><div class="label">Clearance</div><div class="value">LEVEL ${s.clearanceLevel}</div></div>
+        <div class="dev-stat"><div class="label">Current View</div><div class="value" style="font-size:.6rem;">${viewLabel}</div></div>
+        <div class="dev-stat"><div class="label">Last Seen</div><div class="value" style="font-size:.6rem;">${elapsed < 60 ? elapsed + 's ago' : Math.floor(elapsed/60) + 'm ago'}</div></div>
+        <div class="dev-stat"><div class="label">Consented</div><div class="value" style="font-size:.6rem;color:${s.consentedAt ? '#4ade80' : '#ef4444'}">${s.consentedAt || 'NO'}</div></div>
+        <div class="dev-stat"><div class="label">Files Unlocked</div><div class="value">${s.clearanceLevel >= 3 ? '4/4' : s.clearanceLevel >= 2 ? '3/4' : s.clearanceLevel >= 1 ? '2/4' : '1/4'}</div></div>
+      </div>
+      <div class="dev-activity">
+        <h4>Activity Log (${(s.activityLog||[]).length} events)</h4>
+        ${activityHTML}
+      </div>
+    `;
+  }
+
+  /* heartbeat — update this session every 20s */
+  setInterval(() => {
+    if (SESSION_ID && SESSION_ID !== 'undefined') {
+      saveSession();
+    } else {
+      console.error('❌ Heartbeat aborted: SESSION_ID is invalid');
+    }
+  }, 20000);
+
+  /* Auto-boot — start immediately on page load */
+  window.addEventListener('DOMContentLoaded', () => {
+    sessionData.consentedAt = ts();
+    logActivity('Session initialized - consent skipped');
+    saveSession();
+    if (bootScreen) {
+      bootScreen.style.display = 'flex';
+      startBoot();
+    }
+  });
+
+  /* Cleanup on page unload */
+  window.addEventListener('beforeunload', () => {
+    if (SESSION_ID && SESSION_ID !== 'undefined') {
+      try {
+        db.ref('apex_sessions/' + SESSION_ID + '/status').set('closed');
+      } catch(e) {}
+    }
+  });
+</script>
 </body>
 </html>
