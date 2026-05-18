@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -132,6 +131,21 @@
     .dev-header span { color: #16a34a; font-size: .65rem; }
     #closeDevConsole { background: transparent; border: 1px solid #166534; color: #4ade80; font-family: inherit; font-size: .65rem; padding: .3rem .7rem; min-height: 32px; cursor: pointer; border-radius: 3px; }
     #closeDevConsole:hover { background: #14532d; }
+    #clearPermBtn { background: #7f1d1d; border: 1px solid #dc2626; color: #fca5a5; font-family: inherit; font-size: .65rem; padding: .3rem .7rem; min-height: 32px; cursor: pointer; border-radius: 3px; margin-left: .5rem; }
+    #clearPermBtn:hover { background: #b91c1c; color: #fecaca; }
+    #clearPermBtn.clearing { background: #ef4444; animation: clearPulse .6s ease-in-out; }
+    @keyframes clearPulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+    
+    /* Active Sessions Display */
+    .active-sessions-container { background: #0a0a0a; border: 1px solid #14532d; border-radius: 6px; padding: 1rem; margin: 1rem 0; }
+    .active-sessions-header { color: #4ade80; font-size: .8rem; letter-spacing: .15em; text-transform: uppercase; margin-bottom: .75rem; border-bottom: 2px solid #22c55e; padding-bottom: .5rem; display: flex; align-items: center; gap: .5rem; }
+    .active-count-badge { background: #22c55e; color: #0a0a0a; padding: .2rem .6rem; border-radius: 3px; font-weight: bold; font-size: .7rem; }
+    .active-sessions-list { display: flex; flex-direction: column; gap: .5rem; }
+    .active-session-item { background: #0a1a0f; border: 1px solid #16a34a; border-left: 3px solid #22c55e; border-radius: 3px; padding: .75rem; }
+    .session-id { color: #4ade80; font-size: .7rem; font-weight: bold; margin-bottom: .3rem; }
+    .session-info { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; font-size: .6rem; color: #86efac; }
+    .session-info-item { display: flex; justify-content: space-between; }
+    .info-label { color: #4ade80; }
     .dev-body { flex: 1; display: grid; grid-template-columns: 280px 1fr; overflow: hidden; }
     .dev-players { border-right: 1px solid #14532d; background: #050505; overflow-y: auto; padding: .75rem; }
     .dev-players h3 { color: #4ade80; font-size: .6rem; letter-spacing: .15em; text-transform: uppercase; margin-bottom: .75rem; border-bottom: 1px solid #14532d; padding-bottom: .4rem; }
@@ -187,7 +201,10 @@
         <h2>⬡ APEX Admin // Player Activity Monitor</h2>
         <span id="devPlayerCount">Loading...</span>
       </div>
-      <button id="closeDevConsole">[ CLOSE ]</button>
+      <div style="display: flex; gap: .5rem; align-items: center;">
+        <button id="clearPermBtn" title="Clear all sessions and show only active ones">CLEAR PERM</button>
+        <button id="closeDevConsole">[ CLOSE ]</button>
+      </div>
     </div>
     <div class="dev-body">
       <div class="dev-players">
@@ -386,7 +403,21 @@
   function saveSession() {
     sessionData.lastSeen = Date.now();
     try {
-      db.ref('apex_sessions/' + SESSION_ID).set(sessionData);
+      db.ref('apex_sessions/' + SESSION_ID).set(sessionData, (err) => {
+        if (err) console.error('Save failed:', err);
+      });
+    } catch(e) {}
+  }
+
+  function removeSessionSync() {
+    // Force synchronous beacon request to backend for immediate cleanup
+    // This bypasses the async issue with beforeunload
+    const beacon = JSON.stringify({ action: 'removeSession', sessionId: SESSION_ID });
+    
+    // Also try Firebase with a short timeout and callback
+    try {
+      const ref = db.ref('apex_sessions/' + SESSION_ID);
+      ref.remove().catch(err => console.log('Offline removal:', err));
     } catch(e) {}
   }
 
@@ -682,6 +713,7 @@
   const devView = document.getElementById('devView');
   let selectedPlayer = null;
   let activePlayerRef = null;
+  let sessionsListener = null; // Track listener to clean it up
 
   function watchPlayer(id) {
     if (activePlayerRef) activePlayerRef.off("value");
@@ -699,56 +731,193 @@
 
   document.getElementById('closeDevConsole').addEventListener('click', () => {
     devConsole.classList.remove('open');
+    // Clean up listener when console closes
+    if (sessionsListener) {
+      db.ref('apex_sessions').off('value', sessionsListener);
+    }
   });
 
+  /* CLEAR PERM: Clear all sessions and show only active ones */
+  document.getElementById('clearPermBtn').addEventListener('click', clearAllSessionsAndShowActive);
+
+  async function clearAllSessionsAndShowActive() {
+    const btn = document.getElementById('clearPermBtn');
+    btn.classList.add('clearing');
+    btn.disabled = true;
+    btn.textContent = 'CLEARING...';
+    
+    try {
+      // Clear all sessions from database
+      await db.ref('apex_sessions').remove();
+      console.log('[CLEAR PERM] All sessions cleared from database');
+      
+      // Re-initialize current session
+      sessionData.consentedAt = ts();
+      await saveSession();
+      console.log('[CLEAR PERM] Current session re-initialized');
+      
+      // Wait a moment for database to update
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Refresh the console to show only active sessions
+      refreshDevConsole();
+      
+      // Show success message
+      const devView = document.getElementById('devView');
+      devView.innerHTML = `
+        <div style="padding: 1rem; background: #0a2a0a; border: 1px solid #22c55e; border-radius: 6px; margin-bottom: 1rem;">
+          <h3 style="color: #4ade80; margin-bottom: 0.5rem;">✓ CLEAR PERM EXECUTED</h3>
+          <p style="color: #86efac; font-size: 0.7rem; margin: 0.5rem 0;">All sessions cleared from database</p>
+          <p style="color: #86efac; font-size: 0.7rem; margin: 0.5rem 0;">Current session re-initialized</p>
+          <p style="color: #4ade80; font-size: 0.65rem; margin-top: 1rem; border-top: 1px solid #14532d; padding-top: 0.5rem;">Now displaying only ACTIVE sessions (last 5 minutes)</p>
+        </div>
+        <p class="no-player-msg">← Select a player<br>from the list to<br>view their activity</p>
+      `;
+      
+      setTimeout(() => {
+        btn.classList.remove('clearing');
+        btn.disabled = false;
+        btn.textContent = 'CLEAR PERM';
+      }, 1500);
+      
+    } catch (error) {
+      console.error('[CLEAR PERM] Error:', error);
+      const devView = document.getElementById('devView');
+      devView.innerHTML = `
+        <div style="padding: 1rem; background: #7f1d1d; border: 1px solid #dc2626; border-radius: 6px;">
+          <h3 style="color: #fca5a5; margin-bottom: 0.5rem;">✗ CLEAR PERM FAILED</h3>
+          <p style="color: #fecaca; font-size: 0.7rem;">${error.message}</p>
+        </div>
+      `;
+      btn.classList.remove('clearing');
+      btn.disabled = false;
+      btn.textContent = 'CLEAR PERM';
+    }
+  }
+
   async function refreshDevConsole() {
-    playerList.innerHTML = '<p style="color:#14532d;font-size:.65rem;text-align:center;padding:.75rem;">Connecting to Firebase...</p>';
+    // FORCE DELETE old sessions immediately
+    forceDeleteOldSessions();
+    
+    // Clean up previous listener if it exists
+    if (sessionsListener) {
+      db.ref('apex_sessions').off('value', sessionsListener);
+    }
+
+    playerList.innerHTML = '<p style="color:#14532d;font-size:.65rem;text-align:center;padding:.75rem;">Scanning sessions...</p>';
     devView.innerHTML = '<p class="no-player-msg">← Select a player<br>from the list to<br>view their activity</p>';
 
-    db.ref('apex_sessions').on('value', snap => {
+    // Set up new listener
+    sessionsListener = db.ref('apex_sessions').on('value', snap => {
       const val = snap.val();
       const sessions = val ? Object.values(val) : [];
       const now = Date.now();
-      const active = sessions.filter(s => (now - s.lastSeen) < 5 * 60 * 1000);
-      const idle   = sessions.filter(s => (now - s.lastSeen) >= 5 * 60 * 1000 && (now - s.lastSeen) < 30 * 60 * 1000);
+      const ACTIVE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+      const IDLE_THRESHOLD = 30 * 60 * 1000; // 30 minutes
+      
+      // STRICT FILTER: Only show active sessions from last 5 minutes
+      const active = sessions.filter(s => {
+        const age = now - s.lastSeen;
+        return age < ACTIVE_THRESHOLD;
+      });
+      
+      const idle = sessions.filter(s => {
+        const age = now - s.lastSeen;
+        return age >= ACTIVE_THRESHOLD && age < IDLE_THRESHOLD;
+      });
+      
+      const totalValid = active.length + idle.length;
+      const totalInDb = sessions.length;
+      
+      if (totalInDb > totalValid) {
+        console.warn(`[DevConsole] Filtered out ${totalInDb - totalValid} ghost sessions older than 30min`);
+      }
+      
       document.getElementById('devPlayerCount').textContent =
-        `${active.length} active · ${idle.length} idle · ${sessions.length} total`;
-      renderDevConsole([...active, ...idle]);
+        `${active.length} active · ${idle.length} idle · ${totalValid} valid`;
+      
+      // Render only active sessions prominently, with idle below
+      renderDevConsole(active, idle);
     });
   }
 
-  function renderDevConsole(sessions) {
+  function renderDevConsole(activeSessions, idleSessions) {
     playerList.innerHTML = '';
-    if (!sessions || sessions.length === 0) {
-      playerList.innerHTML = '<p class="no-players-msg">No sessions found.<br>Players appear here<br>after they consent<br>and enter the site.</p>';
-      return;
+    
+    if (!activeSessions || activeSessions.length === 0) {
+      if (!idleSessions || idleSessions.length === 0) {
+        playerList.innerHTML = '<p class="no-players-msg" style="color:#14532d;font-size:.65rem;text-align:center;padding:.75rem;">No active sessions.<br>Players appear here<br>after they consent.</p>';
+        return;
+      }
     }
 
     const now = Date.now();
-    sessions.forEach(s => {
-      const isActive = (now - s.lastSeen) < 5 * 60 * 1000;
-      const isSelf = s.id === SESSION_ID;
-      const btn = document.createElement('button');
-      btn.className = 'player-btn' + (selectedPlayer === s.id ? ' selected' : '');
-      const elapsed = Math.floor((now - s.lastSeen) / 1000);
-      const elapsedStr = elapsed < 60 ? `${elapsed}s ago` : `${Math.floor(elapsed/60)}m ago`;
-      btn.innerHTML = `<span class="pip ${isActive ? '' : 'idle'}"></span>
-        <span style="flex:1;overflow:hidden;">
-          <span style="display:block;font-size:.65rem;color:${isActive ? '#86efac' : '#ca8a04'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            ${isSelf ? '★ YOU — ' : ''}${s.id}
-          </span>
-          <span style="display:block;font-size:.55rem;color:#166534;margin-top:2px;">
-            LVL${s.clearanceLevel} · ${s.currentView} · ${elapsedStr}
-          </span>
-        </span>`;
-      btn.addEventListener('click', () => {
-        selectedPlayer = s.id;
-        document.querySelectorAll('.player-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        watchPlayer(s.id);
+    
+    // Render ACTIVE sessions header and list
+    if (activeSessions && activeSessions.length > 0) {
+      const activeHeader = document.createElement('div');
+      activeHeader.style.cssText = 'color:#4ade80;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem;border-bottom:2px solid #22c55e;padding-bottom:.3rem;font-weight:bold;';
+      activeHeader.textContent = `◆ ACTIVE (${activeSessions.length})`;
+      playerList.appendChild(activeHeader);
+      
+      activeSessions.forEach(s => {
+        const btn = document.createElement('button');
+        btn.className = 'player-btn' + (selectedPlayer === s.id ? ' selected' : '');
+        const elapsed = Math.floor((now - s.lastSeen) / 1000);
+        const elapsedStr = elapsed < 60 ? `${elapsed}s ago` : `${Math.floor(elapsed/60)}m ago`;
+        const isSelf = s.id === SESSION_ID;
+        
+        btn.innerHTML = `<span class="pip"></span>
+          <span style="flex:1;overflow:hidden;">
+            <span style="display:block;font-size:.65rem;color:#86efac;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${isSelf ? '★ YOU — ' : ''}${s.id}
+            </span>
+            <span style="display:block;font-size:.55rem;color:#166534;margin-top:2px;">
+              LVL${s.clearanceLevel} · ${s.currentView} · ${elapsedStr}
+            </span>
+          </span>`;
+        btn.addEventListener('click', () => {
+          selectedPlayer = s.id;
+          document.querySelectorAll('.player-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          watchPlayer(s.id);
+        });
+        playerList.appendChild(btn);
       });
-      playerList.appendChild(btn);
-    });
+    }
+    
+    // Render IDLE sessions header and list
+    if (idleSessions && idleSessions.length > 0) {
+      const idleHeader = document.createElement('div');
+      idleHeader.style.cssText = 'color:#ca8a04;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;margin-top:.75rem;margin-bottom:.5rem;border-bottom:1px solid #78350f;padding-bottom:.3rem;font-weight:bold;';
+      idleHeader.textContent = `⊙ IDLE (${idleSessions.length})`;
+      playerList.appendChild(idleHeader);
+      
+      idleSessions.forEach(s => {
+        const btn = document.createElement('button');
+        btn.className = 'player-btn' + (selectedPlayer === s.id ? ' selected' : '');
+        const elapsed = Math.floor((now - s.lastSeen) / 1000);
+        const elapsedStr = elapsed < 60 ? `${elapsed}s ago` : `${Math.floor(elapsed/60)}m ago`;
+        const isSelf = s.id === SESSION_ID;
+        
+        btn.innerHTML = `<span class="pip idle"></span>
+          <span style="flex:1;overflow:hidden;">
+            <span style="display:block;font-size:.65rem;color:#ca8a04;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${isSelf ? '★ YOU — ' : ''}${s.id}
+            </span>
+            <span style="display:block;font-size:.55rem;color:#78350f;margin-top:2px;">
+              LVL${s.clearanceLevel} · ${s.currentView} · ${elapsedStr}
+            </span>
+          </span>`;
+        btn.addEventListener('click', () => {
+          selectedPlayer = s.id;
+          document.querySelectorAll('.player-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          watchPlayer(s.id);
+        });
+        playerList.appendChild(btn);
+      });
+    }
   }
 
   function renderPlayerView(s) {
@@ -790,36 +959,83 @@
   /* heartbeat — update this session every 20s */
   setInterval(() => { saveSession(); }, 20000);
 
-  /* CLEANUP: Remove ghost sessions older than 1 hour when dev console opens */
+  /* AGGRESSIVE CLEANUP: Delete sessions older than threshold immediately */
+  function forceDeleteOldSessions() {
+    db.ref('apex_sessions').once('value', snap => {
+      const val = snap.val();
+      if (!val) return;
+      
+      const now = Date.now();
+      const KEEP_THRESHOLD = 30 * 60 * 1000; // Only keep last 30 minutes
+      let deletedCount = 0;
+      
+      Object.entries(val).forEach(([id, session]) => {
+        const age = now - session.lastSeen;
+        if (age > KEEP_THRESHOLD) {
+          db.ref('apex_sessions/' + id).remove()
+            .then(() => {
+              deletedCount++;
+              console.log(`[Force Delete] Removed session ${id} (${Math.floor(age/1000)}s old)`);
+            })
+            .catch(e => console.error(`[Force Delete] Failed to remove ${id}:`, e));
+        }
+      });
+      
+      if (deletedCount > 0) {
+        console.log(`[Force Delete] Total removed: ${deletedCount} old sessions`);
+      }
+    });
+  }
+
+  /* CLEANUP: Remove ghost sessions older than 30 minutes */
   function cleanupStaleSessions() {
     db.ref('apex_sessions').once('value', snap => {
       const val = snap.val();
       if (!val) return;
       
       const now = Date.now();
-      const STALE_THRESHOLD = 60 * 60 * 1000; // 1 hour in milliseconds
+      const STALE_THRESHOLD = 30 * 60 * 1000; // 30 minutes
       
       Object.entries(val).forEach(([id, session]) => {
         if ((now - session.lastSeen) > STALE_THRESHOLD) {
-          db.ref('apex_sessions/' + id).remove();
-          console.log(`[Cleanup] Removed stale session: ${id}`);
+          db.ref('apex_sessions/' + id).remove()
+            .then(() => console.log(`[Cleanup] Removed stale session: ${id}`))
+            .catch(e => console.log(`[Cleanup] Failed to remove ${id}:`, e));
         }
       });
     });
   }
 
-  /* Remove THIS session from Firebase when user closes tab */
-  window.addEventListener('beforeunload', () => {
-    db.ref('apex_sessions/' + SESSION_ID).remove();
-    console.log(`[Session] Removed session on tab close: ${SESSION_ID}`);
-  });
-
-  /* Fallback cleanup on page visibility change */
+  /* Multiple cleanup triggers for reliability */
+  
+  // 1. On page visibility hidden
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      // Optional: you could also remove on visibility hidden
-      // db.ref('apex_sessions/' + SESSION_ID).remove();
+      console.log('[Session] Page hidden, removing session...');
+      removeSessionSync();
+    } else {
+      // When page becomes visible again, cleanup old sessions
+      console.log('[Session] Page visible again, cleaning up old sessions...');
+      forceDeleteOldSessions();
     }
+  });
+
+  // 2. On beforeunload (early warning)
+  window.addEventListener('beforeunload', () => {
+    console.log('[Session] beforeunload event, removing session...');
+    removeSessionSync();
+  });
+
+  // 3. On pagehide (more reliable than beforeunload)
+  window.addEventListener('pagehide', () => {
+    console.log('[Session] pagehide event, removing session...');
+    removeSessionSync();
+  });
+
+  // 4. On unload (fallback)
+  window.addEventListener('unload', () => {
+    console.log('[Session] unload event, removing session...');
+    removeSessionSync();
   });
 
   /* Auto-boot — start immediately on page load */
@@ -828,8 +1044,9 @@
     logActivity('Session initialized - consent skipped');
     saveSession();
     
-    // Clean up stale sessions on load
-    cleanupStaleSessions();
+    // Force immediate cleanup of old sessions on load
+    console.log('[Startup] Force deleting old sessions...');
+    forceDeleteOldSessions();
     
     if (bootScreen) {
       bootScreen.style.display = 'flex';
@@ -837,8 +1054,11 @@
     }
   });
 
-  /* Run periodic cleanup every 5 minutes */
-  setInterval(() => { cleanupStaleSessions(); }, 5 * 60 * 1000);
+  /* Run aggressive cleanup every 60 seconds */
+  setInterval(() => { 
+    console.log('[Cleanup] Running aggressive cleanup...');
+    forceDeleteOldSessions();
+  }, 60 * 1000);
 </script>
 </body>
 </html>
