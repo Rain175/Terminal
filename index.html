@@ -63,13 +63,13 @@
     #mobileFileMenu { scrollbar-width: thin; scrollbar-color: #27272a rgba(0,0,0,0.2); }
     #mobileFileMenu button { margin-bottom: 0.5rem; min-height: 48px; font-size: 13px; line-height: 1.4; }
     @media (max-width: 768px) { 
-      #mobileFileMenu { display: block; max-height: 55vh; } 
-      #mobileFileMenu .p-2 { padding: 0.75rem !important; }
+      #mobileFileMenu { display: block !important; position: static; border-bottom: 1px solid #27272a; max-height: none; padding: 0.75rem !important; } 
+      #mobileFileMenu .p-2 { padding: 0 !important; }
       #mainViewport { margin-top: 0; } 
     }
     @media (min-width: 769px) { #mobileFileMenu { display: none !important; } }
     @media (max-width: 640px) { 
-      #mobileFileMenu { max-height: 50vh; }
+      #mobileFileMenu { padding: 0.75rem !important; }
       #mobileFileMenu button { margin-bottom: 0.75rem !important; font-size: 12px; }
       #mobileFileMenu .space-y-1 { gap: 0.75rem !important; }
     }
@@ -235,7 +235,7 @@
     <div class="text-zinc-400 animate-pulse">INITIALIZING SECURE ARCHIVE FRAMEWORK... READY. CLICK ANYWHERE TO CONSOLE CONNECT.</div>
   </div>
 
-  <div id="mobileFileMenu" class="fixed top-0 left-0 right-0 z-30 bg-zinc-950 border-b border-zinc-900 md:hidden max-h-48 overflow-y-auto -webkit-overflow-scrolling-touch">
+  <div id="mobileFileMenu" class="static top-0 left-0 right-0 z-30 bg-zinc-950 border-b border-zinc-900 md:hidden overflow-y-auto -webkit-overflow-scrolling-touch">
     <div class="p-2 space-y-1">
       <button onclick="switchView('overview')" class="w-full text-left px-2 py-1.5 rounded text-[10px] transition flex items-center text-zinc-300 bg-zinc-900/50 border border-zinc-800 hover:bg-zinc-900 hover:text-white active:bg-red-950">
         📋 // system_overview
