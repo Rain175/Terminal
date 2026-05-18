@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -359,29 +360,16 @@
   const db = firebase.database();
 
   /* ══════════════════════════════════════════
-     SESSION SETUP — FIXED VERSION
+     SESSION SETUP
   ══════════════════════════════════════════ */
-  // Initialize SESSION_ID with proper validation and persistence
-  let SESSION_ID = sessionStorage.getItem('sessionId');
-  if (!SESSION_ID) {
-    SESSION_ID = 'sess_' + Math.random().toString(36).slice(2, 9) + '_' + Date.now();
-    sessionStorage.setItem('sessionId', SESSION_ID);
-  }
-  // Validate SESSION_ID is never undefined
-  if (typeof SESSION_ID !== 'string' || SESSION_ID.length === 0 || SESSION_ID === 'undefined') {
-    SESSION_ID = 'sess_' + Math.random().toString(36).slice(2, 9) + '_' + Date.now();
-    sessionStorage.setItem('sessionId', SESSION_ID);
-  }
-  console.log('✓ Session ID initialized:', SESSION_ID);
-
+  const SESSION_ID = 'sess_' + Math.random().toString(36).slice(2, 9);
   let sessionData = {
     id: SESSION_ID,
     consentedAt: null,
     lastSeen: Date.now(),
     clearanceLevel: 0,
     currentView: 'overview',
-    activityLog: [],
-    createdAt: Date.now()
+    activityLog: []
   };
 
   function ts() {
@@ -396,18 +384,10 @@
   }
 
   function saveSession() {
-    // CRITICAL: Validate SESSION_ID before saving
-    if (!SESSION_ID || typeof SESSION_ID !== 'string' || SESSION_ID.length === 0 || SESSION_ID === 'undefined') {
-      console.error('❌ Cannot save session: SESSION_ID is invalid', SESSION_ID);
-      return;
-    }
     sessionData.lastSeen = Date.now();
-    sessionData.id = SESSION_ID; // Keep ID in sync
     try {
       db.ref('apex_sessions/' + SESSION_ID).set(sessionData);
-    } catch(e) {
-      console.error('Session save error:', e);
-    }
+    } catch(e) {}
   }
 
   async function loadAllSessions() {
@@ -514,11 +494,7 @@
     runClock();
     renderSidebarFiles();
     switchView('overview');
-    setInterval(() => {
-      if (SESSION_ID && SESSION_ID !== 'undefined') {
-        saveSession();
-      }
-    }, 15000);
+    setInterval(saveSession, 15000);
   }
 
   function renderSidebarFiles() {
@@ -812,33 +788,57 @@
   }
 
   /* heartbeat — update this session every 20s */
-  setInterval(() => {
-    if (SESSION_ID && SESSION_ID !== 'undefined') {
-      saveSession();
-    } else {
-      console.error('❌ Heartbeat aborted: SESSION_ID is invalid');
+  setInterval(() => { saveSession(); }, 20000);
+
+  /* CLEANUP: Remove ghost sessions older than 1 hour when dev console opens */
+  function cleanupStaleSessions() {
+    db.ref('apex_sessions').once('value', snap => {
+      const val = snap.val();
+      if (!val) return;
+      
+      const now = Date.now();
+      const STALE_THRESHOLD = 60 * 60 * 1000; // 1 hour in milliseconds
+      
+      Object.entries(val).forEach(([id, session]) => {
+        if ((now - session.lastSeen) > STALE_THRESHOLD) {
+          db.ref('apex_sessions/' + id).remove();
+          console.log(`[Cleanup] Removed stale session: ${id}`);
+        }
+      });
+    });
+  }
+
+  /* Remove THIS session from Firebase when user closes tab */
+  window.addEventListener('beforeunload', () => {
+    db.ref('apex_sessions/' + SESSION_ID).remove();
+    console.log(`[Session] Removed session on tab close: ${SESSION_ID}`);
+  });
+
+  /* Fallback cleanup on page visibility change */
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      // Optional: you could also remove on visibility hidden
+      // db.ref('apex_sessions/' + SESSION_ID).remove();
     }
-  }, 20000);
+  });
 
   /* Auto-boot — start immediately on page load */
   window.addEventListener('DOMContentLoaded', () => {
     sessionData.consentedAt = ts();
     logActivity('Session initialized - consent skipped');
     saveSession();
+    
+    // Clean up stale sessions on load
+    cleanupStaleSessions();
+    
     if (bootScreen) {
       bootScreen.style.display = 'flex';
       startBoot();
     }
   });
 
-  /* Cleanup on page unload */
-  window.addEventListener('beforeunload', () => {
-    if (SESSION_ID && SESSION_ID !== 'undefined') {
-      try {
-        db.ref('apex_sessions/' + SESSION_ID + '/status').set('closed');
-      } catch(e) {}
-    }
-  });
+  /* Run periodic cleanup every 5 minutes */
+  setInterval(() => { cleanupStaleSessions(); }, 5 * 60 * 1000);
 </script>
 </body>
 </html>
