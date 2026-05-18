@@ -188,6 +188,9 @@
       .dev-header h2 { font-size: 0.65rem; }
       #closeDevConsole { align-self: flex-end; }
     }
+
+    /* ─── TERMINAL KEYWORD COLORS ─── */
+    .term-cmd { color: #f97316; font-weight: bold; }
   </style>
 </head>
 <body class="relative flex flex-col justify-between text-zinc-400">
@@ -361,7 +364,7 @@
 
 <script>
   /* ══════════════════════════════════════════
-     FIREBASE CONFIG — paste yours here
+     FIREBASE CONFIG
   ══════════════════════════════════════════ */
   const firebaseConfig = {
     apiKey:            "AIzaSyBpE3Wo3KsARNdl1KchqyO434QmzJEYNl4",
@@ -410,11 +413,6 @@
   }
 
   function removeSessionSync() {
-    // Force synchronous beacon request to backend for immediate cleanup
-    // This bypasses the async issue with beforeunload
-    const beacon = JSON.stringify({ action: 'removeSession', sessionId: SESSION_ID });
-    
-    // Also try Firebase with a short timeout and callback
     try {
       const ref = db.ref('apex_sessions/' + SESSION_ID);
       ref.remove().catch(err => console.log('Offline removal:', err));
@@ -438,7 +436,7 @@
   }
 
   /* ══════════════════════════════════════════
-     BOOT SEQUENCE (Direct - Consent Removed)
+     BOOT SEQUENCE
   ══════════════════════════════════════════ */
   const bootScreen = document.getElementById('bootScreen');
   function startBoot() {
@@ -600,6 +598,11 @@
   const terminalForm = document.getElementById('terminalForm');
   const terminalInput = document.getElementById('terminalInput');
 
+  /* Helper: wrap a keyword in orange styling */
+  function cmd(word) {
+    return `<span class="term-cmd">${word}</span>`;
+  }
+
   function postLog(text) {
     const el = document.createElement('div');
     el.className = "leading-relaxed whitespace-pre-wrap break-words";
@@ -614,7 +617,7 @@
     terminalFeed.innerHTML = '';
     postLog("Initializing Secure Control Proxy Handshake...");
     postLog(`Active Access Node Path: LEVEL_${securityLevel}_FRAMEWORK`);
-    postLog('Type <span class="text-white font-bold">"help"</span> for standard command vector directories.');
+    postLog(`Type ${cmd('help')} for standard command vector directories.`);
     postLog('----------------------------------------------------');
   }
 
@@ -635,6 +638,16 @@
     }
   });
 
+  /* ── Grant Level 3 silently ── */
+  function grantFullClearance() {
+    securityLevel = 3;
+    globalClearanceText.innerText = clearanceMap[3];
+    globalClearanceText.className = "text-green-500 font-bold tracking-wider glitch-text animate-pulse";
+    sessionData.clearanceLevel = 3;
+    logActivity('Clearance upgraded to Level 3 via emergency override');
+    updateInterfaceToLevel();
+  }
+
   terminalForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const raw = terminalInput.value.trim();
@@ -646,16 +659,29 @@
 
     if (command === 'help') {
       postLog('Available Core Directives:');
-      postLog('  <span class="text-white">bypass [credential]</span>  - Inject string keys to breach firewalls.');
-      postLog('  <span class="text-white">clear</span>                - Wipe log feed lines.');
-      postLog('  <span class="text-white">exit</span>                 - Sever override console link.');
+      postLog(`  ${cmd('bypass')} [credential]  - Inject string keys to breach firewalls.`);
+      postLog(`  ${cmd('clear')}                - Wipe log feed lines.`);
+      postLog(`  ${cmd('exit')}                 - Sever override console link.`);
       if (securityLevel >= 3) {
-        postLog('  <span class="text-green-400">999</span>                  - <span class="text-green-400">[ADMIN] Open player activity monitor.</span>');
+        postLog(`  ${cmd('999')}                  - <span class="text-green-400">[ADMIN] Open player activity monitor.</span>`);
       }
     } else if (command === 'clear') {
       terminalFeed.innerHTML = '';
     } else if (command === 'exit') {
       closeTerminal();
+
+    /* ── 699: Emergency full-clearance override ── */
+    } else if (command === '699') {
+      postLog('<span class="text-orange-400">EMERGENCY OVERRIDE SEQUENCE DETECTED...</span>');
+      postLog('Bypassing incremental shield architecture...');
+      postLog('Injecting root-level authentication token...');
+      setTimeout(() => {
+        postLog('<span class="text-green-400">ROOT CLEARANCE GRANTED — ALL LEVELS UNLOCKED.</span>');
+        grantFullClearance();
+        setTimeout(() => closeTerminal(), 1200);
+      }, 1400);
+
+    /* ── 999: Admin dev console ── */
     } else if (command === '999') {
       if (securityLevel >= 3) {
         postLog('<span class="text-green-400">ADMIN OVERRIDE ACCEPTED — Opening surveillance panel...</span>');
@@ -666,6 +692,7 @@
       } else {
         postLog('<span class="text-red-600">ACCESS DENIED: Insufficient clearance. Requires LEVEL 3 authorization.</span>');
       }
+
     } else if (command.startsWith('bypass ')) {
       const attempt = command.replace('bypass ', '').trim();
       const target = securityLevel + 1;
@@ -682,7 +709,7 @@
           logActivity(`Clearance upgraded to Level ${securityLevel}`);
           if (securityLevel === 3) {
             globalClearanceText.className = "text-green-500 font-bold tracking-wider glitch-text animate-pulse";
-            postLog('<span class="text-green-400">LEVEL 3 UNLOCKED. Admin command "999" now available.</span>');
+            postLog(`<span class="text-green-400">LEVEL 3 UNLOCKED. Admin command ${cmd('999')} now available.</span>`);
           }
           updateInterfaceToLevel();
           closeTerminal();
@@ -691,7 +718,7 @@
         postLog('SECURITY EXCEPTION: Invalid access matrix code signature. Access Refused.');
       }
     } else {
-      postLog(`Syntax Error: Directory command vector "${raw}" not found. Type "help".`);
+      postLog(`Syntax Error: Directory command vector "${raw}" not found. Type ${cmd('help')}.`);
     }
   });
 
@@ -713,7 +740,7 @@
   const devView = document.getElementById('devView');
   let selectedPlayer = null;
   let activePlayerRef = null;
-  let sessionsListener = null; // Track listener to clean it up
+  let sessionsListener = null;
 
   function watchPlayer(id) {
     if (activePlayerRef) activePlayerRef.off("value");
@@ -731,13 +758,11 @@
 
   document.getElementById('closeDevConsole').addEventListener('click', () => {
     devConsole.classList.remove('open');
-    // Clean up listener when console closes
     if (sessionsListener) {
       db.ref('apex_sessions').off('value', sessionsListener);
     }
   });
 
-  /* CLEAR PERM: Clear all sessions and show only active ones */
   document.getElementById('clearPermBtn').addEventListener('click', clearAllSessionsAndShowActive);
 
   async function clearAllSessionsAndShowActive() {
@@ -745,24 +770,12 @@
     btn.classList.add('clearing');
     btn.disabled = true;
     btn.textContent = 'CLEARING...';
-    
     try {
-      // Clear all sessions from database
       await db.ref('apex_sessions').remove();
-      console.log('[CLEAR PERM] All sessions cleared from database');
-      
-      // Re-initialize current session
       sessionData.consentedAt = ts();
       await saveSession();
-      console.log('[CLEAR PERM] Current session re-initialized');
-      
-      // Wait a moment for database to update
       await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Refresh the console to show only active sessions
       refreshDevConsole();
-      
-      // Show success message
       const devView = document.getElementById('devView');
       devView.innerHTML = `
         <div style="padding: 1rem; background: #0a2a0a; border: 1px solid #22c55e; border-radius: 6px; margin-bottom: 1rem;">
@@ -773,15 +786,12 @@
         </div>
         <p class="no-player-msg">← Select a player<br>from the list to<br>view their activity</p>
       `;
-      
       setTimeout(() => {
         btn.classList.remove('clearing');
         btn.disabled = false;
         btn.textContent = 'CLEAR PERM';
       }, 1500);
-      
     } catch (error) {
-      console.error('[CLEAR PERM] Error:', error);
       const devView = document.getElementById('devView');
       devView.innerHTML = `
         <div style="padding: 1rem; background: #7f1d1d; border: 1px solid #dc2626; border-radius: 6px;">
@@ -796,85 +806,52 @@
   }
 
   async function refreshDevConsole() {
-    // FORCE DELETE old sessions immediately
     forceDeleteOldSessions();
-    
-    // Clean up previous listener if it exists
     if (sessionsListener) {
       db.ref('apex_sessions').off('value', sessionsListener);
     }
-
     playerList.innerHTML = '<p style="color:#14532d;font-size:.65rem;text-align:center;padding:.75rem;">Scanning sessions...</p>';
     devView.innerHTML = '<p class="no-player-msg">← Select a player<br>from the list to<br>view their activity</p>';
 
-    // Set up new listener
     sessionsListener = db.ref('apex_sessions').on('value', snap => {
       const val = snap.val();
       const sessions = val ? Object.values(val) : [];
       const now = Date.now();
-      const ACTIVE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
-      const IDLE_THRESHOLD = 30 * 60 * 1000; // 30 minutes
-      
-      // STRICT FILTER: Only show active sessions from last 5 minutes
-      const active = sessions.filter(s => {
-        const age = now - s.lastSeen;
-        return age < ACTIVE_THRESHOLD;
-      });
-      
+      const ACTIVE_THRESHOLD = 5 * 60 * 1000;
+      const IDLE_THRESHOLD = 30 * 60 * 1000;
+      const active = sessions.filter(s => (now - s.lastSeen) < ACTIVE_THRESHOLD);
       const idle = sessions.filter(s => {
         const age = now - s.lastSeen;
         return age >= ACTIVE_THRESHOLD && age < IDLE_THRESHOLD;
       });
-      
-      const totalValid = active.length + idle.length;
-      const totalInDb = sessions.length;
-      
-      if (totalInDb > totalValid) {
-        console.warn(`[DevConsole] Filtered out ${totalInDb - totalValid} ghost sessions older than 30min`);
-      }
-      
       document.getElementById('devPlayerCount').textContent =
-        `${active.length} active · ${idle.length} idle · ${totalValid} valid`;
-      
-      // Render only active sessions prominently, with idle below
+        `${active.length} active · ${idle.length} idle · ${active.length + idle.length} valid`;
       renderDevConsole(active, idle);
     });
   }
 
   function renderDevConsole(activeSessions, idleSessions) {
     playerList.innerHTML = '';
-    
-    if (!activeSessions || activeSessions.length === 0) {
-      if (!idleSessions || idleSessions.length === 0) {
-        playerList.innerHTML = '<p class="no-players-msg" style="color:#14532d;font-size:.65rem;text-align:center;padding:.75rem;">No active sessions.<br>Players appear here<br>after they consent.</p>';
-        return;
-      }
+    if ((!activeSessions || activeSessions.length === 0) && (!idleSessions || idleSessions.length === 0)) {
+      playerList.innerHTML = '<p class="no-players-msg" style="color:#14532d;font-size:.65rem;text-align:center;padding:.75rem;">No active sessions.<br>Players appear here<br>after they consent.</p>';
+      return;
     }
-
     const now = Date.now();
-    
-    // Render ACTIVE sessions header and list
     if (activeSessions && activeSessions.length > 0) {
       const activeHeader = document.createElement('div');
       activeHeader.style.cssText = 'color:#4ade80;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem;border-bottom:2px solid #22c55e;padding-bottom:.3rem;font-weight:bold;';
       activeHeader.textContent = `◆ ACTIVE (${activeSessions.length})`;
       playerList.appendChild(activeHeader);
-      
       activeSessions.forEach(s => {
         const btn = document.createElement('button');
         btn.className = 'player-btn' + (selectedPlayer === s.id ? ' selected' : '');
         const elapsed = Math.floor((now - s.lastSeen) / 1000);
         const elapsedStr = elapsed < 60 ? `${elapsed}s ago` : `${Math.floor(elapsed/60)}m ago`;
         const isSelf = s.id === SESSION_ID;
-        
         btn.innerHTML = `<span class="pip"></span>
           <span style="flex:1;overflow:hidden;">
-            <span style="display:block;font-size:.65rem;color:#86efac;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${isSelf ? '★ YOU — ' : ''}${s.id}
-            </span>
-            <span style="display:block;font-size:.55rem;color:#166534;margin-top:2px;">
-              LVL${s.clearanceLevel} · ${s.currentView} · ${elapsedStr}
-            </span>
+            <span style="display:block;font-size:.65rem;color:#86efac;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${isSelf ? '★ YOU — ' : ''}${s.id}</span>
+            <span style="display:block;font-size:.55rem;color:#166534;margin-top:2px;">LVL${s.clearanceLevel} · ${s.currentView} · ${elapsedStr}</span>
           </span>`;
         btn.addEventListener('click', () => {
           selectedPlayer = s.id;
@@ -885,29 +862,21 @@
         playerList.appendChild(btn);
       });
     }
-    
-    // Render IDLE sessions header and list
     if (idleSessions && idleSessions.length > 0) {
       const idleHeader = document.createElement('div');
       idleHeader.style.cssText = 'color:#ca8a04;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;margin-top:.75rem;margin-bottom:.5rem;border-bottom:1px solid #78350f;padding-bottom:.3rem;font-weight:bold;';
       idleHeader.textContent = `⊙ IDLE (${idleSessions.length})`;
       playerList.appendChild(idleHeader);
-      
       idleSessions.forEach(s => {
         const btn = document.createElement('button');
         btn.className = 'player-btn' + (selectedPlayer === s.id ? ' selected' : '');
         const elapsed = Math.floor((now - s.lastSeen) / 1000);
         const elapsedStr = elapsed < 60 ? `${elapsed}s ago` : `${Math.floor(elapsed/60)}m ago`;
         const isSelf = s.id === SESSION_ID;
-        
         btn.innerHTML = `<span class="pip idle"></span>
           <span style="flex:1;overflow:hidden;">
-            <span style="display:block;font-size:.65rem;color:#ca8a04;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${isSelf ? '★ YOU — ' : ''}${s.id}
-            </span>
-            <span style="display:block;font-size:.55rem;color:#78350f;margin-top:2px;">
-              LVL${s.clearanceLevel} · ${s.currentView} · ${elapsedStr}
-            </span>
+            <span style="display:block;font-size:.65rem;color:#ca8a04;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${isSelf ? '★ YOU — ' : ''}${s.id}</span>
+            <span style="display:block;font-size:.55rem;color:#78350f;margin-top:2px;">LVL${s.clearanceLevel} · ${s.currentView} · ${elapsedStr}</span>
           </span>`;
         btn.addEventListener('click', () => {
           selectedPlayer = s.id;
@@ -923,10 +892,8 @@
   function renderPlayerView(s) {
     const now = Date.now();
     const elapsed = Math.floor((now - s.lastSeen) / 1000);
-    const sessionAge = Math.floor((now - (s.consentedAt ? now - 0 : now)) / 1000);
     const isActive = elapsed < 300;
     const isSelf = s.id === SESSION_ID;
-
     const viewLabel = {
       overview: 'System Overview',
       leak_memo: 'intercepted_memo.txt',
@@ -934,11 +901,9 @@
       scientist_log: 'distress_audio_dump.txt',
       root_archive: 'master_override.key'
     }[s.currentView] || s.currentView;
-
     const activityHTML = (s.activityLog || []).slice().reverse().map(e =>
       `<div class="activity-line"><span class="ts">${e.ts}</span><span class="action">${e.action}</span></div>`
     ).join('') || '<p style="color:#14532d;font-size:.6rem;padding:.5rem 0;">No activity recorded yet.</p>';
-
     devView.innerHTML = `
       <h3>${isSelf ? '★ YOUR SESSION' : 'Player Session'}: ${s.id}</h3>
       <div class="dev-stat-grid">
@@ -956,109 +921,57 @@
     `;
   }
 
-  /* heartbeat — update this session every 20s */
+  /* heartbeat */
   setInterval(() => { saveSession(); }, 20000);
 
-  /* AGGRESSIVE CLEANUP: Delete sessions older than threshold immediately */
   function forceDeleteOldSessions() {
     db.ref('apex_sessions').once('value', snap => {
       const val = snap.val();
       if (!val) return;
-      
       const now = Date.now();
-      const KEEP_THRESHOLD = 30 * 60 * 1000; // Only keep last 30 minutes
-      let deletedCount = 0;
-      
+      const KEEP_THRESHOLD = 30 * 60 * 1000;
       Object.entries(val).forEach(([id, session]) => {
-        const age = now - session.lastSeen;
-        if (age > KEEP_THRESHOLD) {
-          db.ref('apex_sessions/' + id).remove()
-            .then(() => {
-              deletedCount++;
-              console.log(`[Force Delete] Removed session ${id} (${Math.floor(age/1000)}s old)`);
-            })
-            .catch(e => console.error(`[Force Delete] Failed to remove ${id}:`, e));
+        if ((now - session.lastSeen) > KEEP_THRESHOLD) {
+          db.ref('apex_sessions/' + id).remove().catch(() => {});
         }
       });
-      
-      if (deletedCount > 0) {
-        console.log(`[Force Delete] Total removed: ${deletedCount} old sessions`);
-      }
     });
   }
 
-  /* CLEANUP: Remove ghost sessions older than 30 minutes */
   function cleanupStaleSessions() {
     db.ref('apex_sessions').once('value', snap => {
       const val = snap.val();
       if (!val) return;
-      
       const now = Date.now();
-      const STALE_THRESHOLD = 30 * 60 * 1000; // 30 minutes
-      
+      const STALE_THRESHOLD = 30 * 60 * 1000;
       Object.entries(val).forEach(([id, session]) => {
         if ((now - session.lastSeen) > STALE_THRESHOLD) {
-          db.ref('apex_sessions/' + id).remove()
-            .then(() => console.log(`[Cleanup] Removed stale session: ${id}`))
-            .catch(e => console.log(`[Cleanup] Failed to remove ${id}:`, e));
+          db.ref('apex_sessions/' + id).remove().catch(() => {});
         }
       });
     });
   }
 
-  /* Multiple cleanup triggers for reliability */
-  
-  // 1. On page visibility hidden
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      console.log('[Session] Page hidden, removing session...');
-      removeSessionSync();
-    } else {
-      // When page becomes visible again, cleanup old sessions
-      console.log('[Session] Page visible again, cleaning up old sessions...');
-      forceDeleteOldSessions();
-    }
+    if (document.hidden) { removeSessionSync(); }
+    else { forceDeleteOldSessions(); }
   });
+  window.addEventListener('beforeunload', removeSessionSync);
+  window.addEventListener('pagehide', removeSessionSync);
+  window.addEventListener('unload', removeSessionSync);
 
-  // 2. On beforeunload (early warning)
-  window.addEventListener('beforeunload', () => {
-    console.log('[Session] beforeunload event, removing session...');
-    removeSessionSync();
-  });
-
-  // 3. On pagehide (more reliable than beforeunload)
-  window.addEventListener('pagehide', () => {
-    console.log('[Session] pagehide event, removing session...');
-    removeSessionSync();
-  });
-
-  // 4. On unload (fallback)
-  window.addEventListener('unload', () => {
-    console.log('[Session] unload event, removing session...');
-    removeSessionSync();
-  });
-
-  /* Auto-boot — start immediately on page load */
   window.addEventListener('DOMContentLoaded', () => {
     sessionData.consentedAt = ts();
     logActivity('Session initialized - consent skipped');
     saveSession();
-    
-    // Force immediate cleanup of old sessions on load
-    console.log('[Startup] Force deleting old sessions...');
     forceDeleteOldSessions();
-    
     if (bootScreen) {
       bootScreen.style.display = 'flex';
       startBoot();
     }
   });
 
-  /* Run aggressive cleanup every 60 seconds */
-  setInterval(() => { 
-    console.log('[Cleanup] Running aggressive cleanup...');
-    forceDeleteOldSessions();
-  }, 60 * 1000);
+  setInterval(() => { forceDeleteOldSessions(); }, 60 * 1000);
 </script>
 </body>
 </html>
